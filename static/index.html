@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Book ISBN Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📚 Book ISBN Finder</h1>
+            <p class="subtitle">Trova qualsiasi libro da una foto</p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('photo')">📷 Foto</button>
+            <button class="tab-btn" onclick="switchTab('manual')">🔍 Ricerca Manuale</button>
+            <button class="tab-btn" onclick="switchTab('history')">⏱️ Cronologia</button>
+        </div>
+
+        <!-- Tab: Photo Upload -->
+        <div id="photo-tab" class="tab-content active">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <div class="upload-content">
+                        <span class="upload-icon">📷</span>
+                        <p>Carica una foto della copertina</p>
+                        <p class="upload-hint">oppure trascinala qui</p>
+                    </div>
+                </div>
+                <div id="uploadProgress" class="progress-container hidden">
+                    <div class="spinner"></div>
+                    <p>Elaborazione in corso...</p>
+                </div>
+            </div>
+
+            <!-- Result Section -->
+            <div id="resultSection" class="result-section hidden">
+                <div id="resultContent" class="result-content"></div>
+                <button class="btn btn-secondary" onclick="resetForm()">← Carica un'altra foto</button>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" class="error-section hidden">
+                <div class="error-message" id="errorMessage"></div>
+                <button class="btn btn-secondary" onclick="resetForm()">← Riprova</button>
+            </div>
+        </div>
+
+        <!-- Tab: Manual Search -->
+        <div id="manual-tab" class="tab-content hidden">
+            <div class="manual-search">
+                <div class="search-form">
+                    <input 
+                        type="text" 
+                        id="isbnInput" 
+                        placeholder="Inserisci ISBN (es: 9788845920547)"
+                        class="input-field"
+                    >
+                    <button class="btn btn-primary" onclick="searchISBN()">Cerca</button>
+                </div>
+                <div id="manualResultSection" class="result-section hidden">
+                    <div id="manualResultContent" class="result-content"></div>
+                    <button class="btn btn-secondary" onclick="resetManualSearch()">← Nuova ricerca</button>
+                </div>
+                <div id="manualErrorSection" class="error-section hidden">
+                    <div class="error-message" id="manualErrorMessage"></div>
+                    <button class="btn btn-secondary" onclick="resetManualSearch()">← Riprova</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: History -->
+        <div id="history-tab" class="tab-content hidden">
+            <div class="history-section">
+                <h2>Cronologia ricerche</h2>
+                <div id="historyContent" class="history-list">
+                    <p class="no-data">Nessuna ricerca ancora</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

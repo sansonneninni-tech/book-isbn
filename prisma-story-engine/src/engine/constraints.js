@@ -2,7 +2,7 @@
 // Sono deterministiche e applicate in due tempi: scelta guidata + passata di riparazione.
 
 import { SCALES, MOVES, MOVE_BANDS } from './vocabulary.js';
-import { hexToHsl, hueDistance, colorName } from './color.js';
+import { hexToHsl, hueDistance, colorName, conArticolo } from './color.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -124,9 +124,14 @@ export function linkBetween(a, b, ctx) {
   const dScale = Math.abs(a.scala.i - b.scala.i);
 
   if (dh < 24 && dl < 22) {
+    const na = colorName(a.colore.hex);
+    const nb = colorName(b.colore.hex);
     return {
       tipo: 'colore',
-      testo: `Raccordo di colore: il ${colorName(a.colore.hex)} resta in campo e regge il taglio verso il ${colorName(b.colore.hex)}.`,
+      testo: na === nb
+        // stessa dominante ai due lati: il taglio sparisce, ed e' una scelta, non un caso
+        ? `Raccordo di colore: la dominante resta ${conArticolo(na)} da una parte e dall’altra, il taglio diventa invisibile.`
+        : `Raccordo di colore: ${conArticolo(na)} resta in campo e regge il taglio verso ${conArticolo(nb)}.`,
     };
   }
   if (a.movimento.axis !== 'nessuno' && a.movimento.axis === b.movimento.axis) {

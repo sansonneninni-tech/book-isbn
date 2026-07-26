@@ -1,7 +1,7 @@
 // Diagnostica narrativa: cerca ripetizioni, buchi, finale debole, progressione piatta.
 // Non "corregge": segnala, perche' la scelta finale resta tua.
 
-import { hexToHsl, hueDistance } from './color.js';
+import { hexToHsl, hueDistance, dalColore, alColore } from './color.js';
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 
@@ -56,7 +56,7 @@ export function analyze(plan) {
   } else if (dh < 18 && dl < 12) {
     push('warn', 'Arco cromatico piatto', `Fra prima e ultima inquadratura ci sono solo ${Math.round(dh)}° di tinta e ${Math.round(dl)} punti di luminosità. Se il colore non viaggia, la narrazione non viaggia.`);
   } else {
-    push('ok', 'Arco cromatico', `Dal ${shots[0].colore.nome} al ${shots[shots.length - 1].colore.nome}: ${Math.round(dh)}° di viaggio cromatico.`);
+    push('ok', 'Arco cromatico', `${dalColore(shots[0].colore.nome)} ${alColore(shots[shots.length - 1].colore.nome)}: ${Math.round(dh)}° di viaggio cromatico.`);
   }
 
   // --- buchi strutturali -----------------------------------------------------
@@ -114,7 +114,7 @@ export function editingNotes(plan) {
   const actionCuts = shots.filter((s) => s.linkPrev.tipo === 'movimento').map((s) => s.n);
   if (actionCuts.length) notes.push(`Match on action: shot ${actionCuts.join(', ')} — taglia a metà del movimento, mai all’inizio o alla fine.`);
 
-  notes.push(`Grading: porta la dominante da ${shots[0].colore.nome} a ${shots[shots.length - 1].colore.nome} in modo progressivo, senza salti fra shot adiacenti.`);
+  notes.push(`Grading: porta la dominante ${dalColore(shots[0].colore.nome)} ${alColore(shots[shots.length - 1].colore.nome)} in modo progressivo, senza salti fra shot adiacenti.`);
   if (['pulsato', 'serrato', 'sincopato'].includes(meta.ritmoId)) notes.push('Allinea ogni stacco a un accento della traccia: con questo ritmo un taglio fuori beat si sente subito.');
   else notes.push('Con questo ritmo evita di tagliare sul beat: lascia che le immagini scivolino leggermente rispetto alla musica.');
 

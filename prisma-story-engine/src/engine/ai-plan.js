@@ -62,7 +62,9 @@ colori esatti o raccordi: quelli li calcola il programma dai tuoi valori.
 
 Campi di ogni inquadratura:
 - "fn": la funzione narrativa concreta di questa inquadratura in questa struttura (max 14 parole, in italiano)
-- "soggetto": cosa si inquadra esattamente, con i materiali disponibili (max 18 parole, in italiano)
+- "soggetto": COSA si inquadra, con i materiali disponibili (max 18 parole, in italiano).
+  Descrivi solo il contenuto, NON il tipo di piano: la scala esatta la sceglie il programma
+  dentro la finestra "scale", e se la nomini qui i due si contraddicono sul set.
 - "alternativa": un modo diverso di riprendere lo stesso beat se sul posto non funziona (una frase)
 - "act": 1, 2 o 3 (apertura / trasformazione / chiusura) — devono essere in ordine non decrescente
 - "role": uno fra ${ROLES.map((r) => `"${r}"`).join(', ')}
@@ -78,14 +80,16 @@ Vincoli non negoziabili:
 3. Ogni atto (1, 2, 3) ha almeno una inquadratura.
 4. Le finestre "scale" di inquadrature vicine devono essere diverse: alterna stretto e largo.
 5. La curva delle "i" deve avere un arco riconoscibile, non essere piatta.
+6. I soggetti devono essere coerenti con la palette: all'inizio del reel domina il primo colore,
+   alla fine il secondo. Non descrivere colori in contrasto con quelli indicati sopra.
 
 ## Formato
 
 Rispondi SOLO con questo JSON, senza testo prima o dopo, senza blocchi di codice:
 
 {"shots":[
- {"fn":"Stabilire lo stato di quiete","soggetto":"Campo medio sulla superficie d'acqua ferma, riflesso del cielo","alternativa":"Macro sulla stessa acqua, solo texture","act":1,"role":"apertura","w":1.3,"i":0.18,"c":0,"scale":[4,6],"move":"static"},
- {"fn":"Il primo segno del cambiamento","soggetto":"Dettaglio della goccia che rompe la superficie","alternativa":"Piano ravvicinato sul cerchio che si allarga","act":1,"role":"sviluppo","w":0.8,"i":0.3,"c":0.15,"scale":[0,1],"move":"soft"}
+ {"fn":"Stabilire lo stato di quiete","soggetto":"La superficie d'acqua ferma, con il riflesso del cielo","alternativa":"La stessa acqua ripresa solo come texture, senza orizzonte","act":1,"role":"apertura","w":1.3,"i":0.18,"c":0,"scale":[4,6],"move":"static"},
+ {"fn":"Il primo segno del cambiamento","soggetto":"La goccia che rompe la superficie e il cerchio che si allarga","alternativa":"Lo stesso impatto visto da sopra, contro la luce","act":1,"role":"sviluppo","w":0.8,"i":0.3,"c":0.15,"scale":[0,1],"move":"soft"}
 ]}`;
 }
 

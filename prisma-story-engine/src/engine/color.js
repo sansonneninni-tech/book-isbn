@@ -116,6 +116,13 @@ export function colorName(hex) {
   return base + qual;
 }
 
+// Elisione: "l'azzurro" e non "il azzurro". I nomi di colore finiscono in mezzo
+// a frasi generate, quindi l'articolo va costruito, non concatenato a mano.
+const vocale = (n) => /^[aeiou]/i.test(n);
+export const conArticolo = (n) => (vocale(n) ? `l’${n}` : `il ${n}`);
+export const dalColore = (n) => (vocale(n) ? `dall’${n}` : `dal ${n}`);
+export const alColore = (n) => (vocale(n) ? `all’${n}` : `al ${n}`);
+
 /** Contrasto di luminosita' fra due colori: usato per i raccordi. */
 export function lumaDelta(hexA, hexB) {
   return Math.abs(hexToHsl(hexA).l - hexToHsl(hexB).l);

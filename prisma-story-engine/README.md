@@ -16,6 +16,16 @@ python3 -m http.server 8000
 
 Funziona offline. Il progetto viene salvato automaticamente nel browser (localStorage) e può essere esportato come file `.json`, `.csv` o stampato in PDF.
 
+### Versione single-file
+
+Per aprirlo senza server (doppio clic, o da telefono, o su un qualsiasi hosting statico):
+
+```bash
+node build.mjs          # -> dist/prisma-story-engine.html
+```
+
+`build.mjs` impacchetta i 22 moduli ES e i tre fogli di stile in un unico `.html` autonomo, senza dipendenze. Non è un bundler generico: gestisce le sole forme di import/export usate qui, e si ferma con un errore se ne incontra una diversa.
+
 ## Flusso
 
 1. **Wizard** — idea, arco emotivo, materiali disponibili, palette iniziale/finale, evoluzione della luce, ritmo, durata, presenza di persone.
@@ -50,6 +60,7 @@ Tutto è **deterministico e seedato**: lo stesso seed produce lo stesso piano, u
 ```
 prisma-story-engine/
 ├── index.html
+├── build.mjs     bundle single-file -> dist/
 ├── styles/       base · components · print
 └── src/
     ├── main.js           orchestrazione e render

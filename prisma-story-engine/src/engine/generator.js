@@ -148,9 +148,12 @@ function altPhrase(scale, move, subject, people) {
 
 /**
  * Genera il piano completo.
+ * `options.beats` sostituisce la beat map della struttura (usata dal ponte AI:
+ * il modello propone i beat, il motore applica comunque durate e vincoli).
+ * `options.texts` sovrascrive soggetto e alternativa shot per shot.
  * @returns {{meta:Object, shots:Array, acts:Array}}
  */
-export function generatePlan(input, structureId, seed = 'prisma') {
+export function generatePlan(input, structureId, seed = 'prisma', options = {}) {
   const structure = getStructure(structureId);
   if (!structure) throw new Error(`Struttura sconosciuta: ${structureId}`);
 
@@ -160,9 +163,11 @@ export function generatePlan(input, structureId, seed = 'prisma') {
   const duration = clamp(Number(input.durata) || 20, 6, 90);
   const people = !!input.persone;
 
-  // 1. densita'
+  // 1. densita' (o beat map fornita dall'esterno, gia' validata)
   const target = clamp(Math.round(duration / rhythm.avgShot), 5, 26);
-  const beats = fitBeats(structure.beats, target, rng);
+  const beats = Array.isArray(options.beats) && options.beats.length >= 3
+    ? options.beats.map((b) => ({ variant: 0, exp: false, ...b }))
+    : fitBeats(structure.beats, target, rng);
 
   // 2. durate
   const durations = computeDurations(beats, duration, rhythm, rng);
@@ -215,6 +220,17 @@ export function generatePlan(input, structureId, seed = 'prisma') {
       fatto: false,
     };
   });
+
+  // 6b. testi forniti dall'esterno: sostituiscono solo la descrizione, mai i vincoli
+  if (Array.isArray(options.texts)) {
+    const byN = new Map(options.texts.map((t) => [Number(t.n), t]));
+    shots.forEach((s) => {
+      const t = byN.get(s.n);
+      if (!t) return;
+      if (t.soggetto) s.soggetto = t.soggetto;
+      if (t.alternativa) s.alternativa = t.alternativa;
+    });
+  }
 
   // 7. raccordi
   const links = [];

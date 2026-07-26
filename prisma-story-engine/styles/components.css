@@ -244,7 +244,12 @@ input[type=color] { width: 100%; height: 46px; padding: 3px; background: #0e1119
 .shoot-alt { font-size: .8rem; color: #7f879d; margin: 4px 0 0; }
 
 /* ---------- modale, toast ---------- */
-.modal { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: var(--radius); padding: 22px; max-width: 480px; width: calc(100vw - 32px); }
+.modal {
+  border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  border-radius: var(--radius); padding: 22px;
+  max-width: 480px; width: calc(100vw - 32px);
+  max-height: 86dvh; overflow-y: auto;   /* su schermi bassi i pulsanti devono restare raggiungibili */
+}
 .modal::backdrop { background: rgba(5, 6, 10, .7); }
 .toast {
   position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
@@ -253,3 +258,41 @@ input[type=color] { width: 100%; height: 46px; padding: 3px; background: #0e1119
   opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50;
 }
 .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- ponte copia-incolla ---------- */
+/* Il ponte tiene l'app "in attesa" finché non incolli: il modale deve restare
+   interattivo, altrimenti la regola body.is-busy disattiva anche i suoi pulsanti. */
+dialog.modal .btn,
+dialog.modal input,
+dialog.modal textarea,
+dialog.modal select { pointer-events: auto; opacity: 1; }
+
+.modal-wide { max-width: 640px; }
+.bridge-head { margin-bottom: 16px; }
+.bridge-step { margin-bottom: 18px; }
+.bridge-step h3 { font-size: .95rem; margin-bottom: 8px; }
+.bridge-prompt, .bridge-answer {
+  width: 100%; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #0e1119; color: #c6cbdb; border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; resize: vertical;
+}
+.bridge-prompt { color: #9aa2b8; }
+.bridge-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.bridge-actions .btn { text-decoration: none; }
+.bridge-status { font-size: .85rem; color: var(--muted); margin-top: 8px; }
+.bridge-status.is-good { color: var(--ok); }
+.bridge-status.is-bad { color: var(--warn); }
+
+.bridge-report { display: flex; flex-direction: column; gap: 10px; border-color: rgba(110, 168, 255, .35); }
+.bridge-report ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.bridge-report li { font-size: .88rem; color: #c6cbdb; }
+.bridge-report .report-warn { color: var(--warn); }
+.bridge-report .report-ok { color: var(--ok); }
+.bridge-report .btn { align-self: flex-end; }
+
+.badge-inline {
+  display: inline-block; margin-left: 10px; vertical-align: middle;
+  background: rgba(110, 168, 255, .16); color: var(--accent-2);
+  font-size: .68rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 99px;
+}

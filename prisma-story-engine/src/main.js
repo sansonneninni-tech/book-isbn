@@ -1,6 +1,6 @@
 import { $, el, clear } from './util/dom.js';
 import { state, setState, subscribe, restore, resetAll, snapshot, loadSnapshot, persist } from './state.js';
-import { getAdapter, loadProviderConfig, saveProviderConfig, PROVIDERS } from './adapters/index.js';
+import { getAdapter, loadProviderConfig, saveProviderConfig, PROVIDERS, PROVIDER_LABELS } from './adapters/index.js';
 import { renderWizard } from './ui/wizard.js';
 import { renderStructures } from './ui/structures.js';
 import { renderShotlist } from './ui/shotlist.js';
@@ -8,6 +8,7 @@ import { renderTimeline } from './ui/timeline.js';
 import { renderAnalysis, renderEditing } from './ui/analysis.js';
 import { renderShooting } from './ui/shooting.js';
 import { exportCsv, exportJson, importJson, printPlan } from './ui/exports.js';
+import { openBridge, bridgeReportBox } from './ui/bridge.js';
 
 const view = $('#view');
 const toolbar = $('#toolbar');
@@ -20,6 +21,9 @@ function notify(msg) {
   clearTimeout(notify._t);
   notify._t = setTimeout(() => toast.classList.remove('is-visible'), 2600);
 }
+
+// il ponte copia-incolla ha bisogno di aprire un modale: gliela passiamo qui
+const adapter = () => getAdapter(loadProviderConfig(), { requestPaste: openBridge });
 
 // non passa dallo store: evita un re-render (e la perdita del focus) a ogni attesa
 async function withBusy(label, fn) {
@@ -38,21 +42,18 @@ async function withBusy(label, fn) {
 // --- azioni ----------------------------------------------------------------
 
 async function proposeStructures() {
-  const adapter = getAdapter();
   const seed = `${Date.now()}`;
-  const candidates = await withBusy('strutture', () => adapter.proposeStructures(state.input, seed));
+  const candidates = await withBusy('strutture', () => adapter().proposeStructures(state.input, seed));
   if (candidates) setState({ candidates, seed, step: 'strutture' });
 }
 
 async function buildPlan(structureId) {
-  const adapter = getAdapter();
-  const plan = await withBusy('piano', () => adapter.generatePlan(state.input, structureId, state.seed));
+  const plan = await withBusy('piano', () => adapter().generatePlan(state.input, structureId, state.seed));
   if (plan) setState({ plan, step: 'piano', tab: 'shotlist' });
 }
 
 async function regenerateShot(index) {
-  const adapter = getAdapter();
-  const plan = await withBusy('shot', () => adapter.regenerateShot(state.plan, state.input, index));
+  const plan = await withBusy('shot', () => adapter().regenerateShot(state.plan, state.input, index));
   if (plan) {
     setState({ plan });
     notify(`Inquadratura ${index + 1} rigenerata`);
@@ -76,6 +77,30 @@ function selectShot(n) {
 
 function openSettings() {
   const cfg = loadProviderConfig();
+
+  // i campi API servono solo ai provider automatici: restano nascosti per locale e ponte
+  const keyFields = el('div', { class: 'key-fields' }, [
+    el('label', { class: 'field' }, [
+      el('span', { class: 'field-label', text: 'API key' }),
+      el('span', { class: 'field-hint', text: 'Resta solo nel tuo browser ed è leggibile da chi usa questo dispositivo. Per un uso condiviso, metti un tuo proxy nel campo endpoint e lascia vuota la chiave.' }),
+      el('input', { type: 'password', name: 'apiKey', value: cfg.apiKey || '', autocomplete: 'off' }),
+    ]),
+    el('label', { class: 'field' }, [
+      el('span', { class: 'field-label', text: 'Modello (opzionale)' }),
+      el('input', { type: 'text', name: 'model', value: cfg.model || '', placeholder: 'gpt-4o-mini · claude-opus-5' }),
+    ]),
+    el('label', { class: 'field' }, [
+      el('span', { class: 'field-label', text: 'Endpoint / proxy (opzionale)' }),
+      el('input', { type: 'text', name: 'baseUrl', value: cfg.baseUrl || '', placeholder: 'https://tuo-proxy/api' }),
+    ]),
+  ]);
+  const bridgeNote = el('p', { class: 'field-hint', text: 'Col ponte non serve nessuna chiave: l’app prepara il prompt, tu lo porti nella chat che già usi e riporti indietro la risposta.' });
+  const syncKeys = (provider) => {
+    const needsKey = provider === 'claude' || provider === 'openai';
+    keyFields.style.display = needsKey ? '' : 'none';
+    bridgeNote.style.display = provider === 'manual' ? '' : 'none';
+  };
+
   const dlg = el('dialog', { class: 'modal' }, [
     el('form', { method: 'dialog', onsubmit: (e) => {
       e.preventDefault();
@@ -92,24 +117,14 @@ function openSettings() {
       render();
     } }, [
       el('h2', { text: 'Motore di generazione' }),
-      el('p', { class: 'muted', text: 'Il motore locale è sempre attivo e definisce la struttura. Un provider esterno riscrive solo soggetti, funzioni e alternative — durate, scale, movimenti e colori restano deterministici. Se la chiamata fallisce, si torna automaticamente al locale.' }),
+      el('p', { class: 'muted', text: 'Qualunque sia il provider, i vincoli di ripresa restano del motore locale: durate, varietà di scale, alternanza dei movimenti e raccordi vengono ricalcolati e riparati qui. Il modello propone, il motore verifica.' }),
       el('label', { class: 'field' }, [
         el('span', { class: 'field-label', text: 'Provider' }),
-        el('select', { name: 'provider' }, PROVIDERS.map((p) => el('option', { value: p.id, selected: p.id === cfg.provider, text: p.label }))),
+        el('select', { name: 'provider', onchange: (e) => syncKeys(e.target.value) },
+          PROVIDERS.map((p) => el('option', { value: p.id, selected: p.id === cfg.provider, text: p.label }))),
       ]),
-      el('label', { class: 'field' }, [
-        el('span', { class: 'field-label', text: 'API key' }),
-        el('span', { class: 'field-hint', text: 'Resta solo nel tuo browser. Una chiave nel browser è visibile a chi usa questo dispositivo: per un uso condiviso, usa un proxy e lascia il campo vuoto.' }),
-        el('input', { type: 'password', name: 'apiKey', value: cfg.apiKey || '', autocomplete: 'off' }),
-      ]),
-      el('label', { class: 'field' }, [
-        el('span', { class: 'field-label', text: 'Modello (opzionale)' }),
-        el('input', { type: 'text', name: 'model', value: cfg.model || '', placeholder: 'claude-sonnet-5' }),
-      ]),
-      el('label', { class: 'field' }, [
-        el('span', { class: 'field-label', text: 'Endpoint / proxy (opzionale)' }),
-        el('input', { type: 'text', name: 'baseUrl', value: cfg.baseUrl || '', placeholder: 'https://tuo-proxy/api/messages' }),
-      ]),
+      keyFields,
+      bridgeNote,
       el('div', { class: 'actions' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', text: 'Annulla', onclick: () => { dlg.close(); dlg.remove(); } }),
         el('button', { class: 'btn btn-primary', type: 'submit', text: 'Salva' }),
@@ -117,6 +132,7 @@ function openSettings() {
     ]),
   ]);
   document.body.append(dlg);
+  syncKeys(cfg.provider);
   dlg.showModal();
 }
 
@@ -140,7 +156,7 @@ function renderToolbar() {
       has ? el('button', { class: 'btn btn-sm', type: 'button', text: 'Stampa / PDF', onclick: printPlan }) : null,
       el('button', { class: 'btn btn-sm', type: 'button', text: 'Salva file', onclick: () => exportJson(snapshot(), state.input) }),
       el('button', { class: 'btn btn-sm', type: 'button', text: 'Apri file', onclick: () => importJson((obj) => { loadSnapshot(obj); notify('Progetto caricato'); }) }),
-      el('button', { class: 'btn btn-sm', type: 'button', text: `⚙ ${cfg.provider === 'local' ? 'Locale' : cfg.provider}`, onclick: openSettings }),
+      el('button', { class: 'btn btn-sm', type: 'button', text: `⚙ ${PROVIDER_LABELS[cfg.provider] || cfg.provider}`, onclick: openSettings }),
       el('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Nuovo', onclick: () => {
         if (confirm('Azzerare il progetto corrente? Il salvataggio locale verrà cancellato.')) { resetAll(); notify('Progetto azzerato'); }
       } }),
@@ -158,7 +174,12 @@ function renderPlan() {
 
   const head = el('div', { class: 'plan-head' }, [
     el('div', {}, [
-      el('h2', { text: state.plan.meta.strutturaNome }),
+      el('h2', {}, [
+        state.plan.meta.strutturaNome,
+        state.plan.meta.origine === 'ponte'
+          ? el('span', { class: 'badge-inline', text: 'da ChatGPT' })
+          : null,
+      ]),
       el('p', { class: 'muted', text: `${state.plan.meta.tagline} · ${state.plan.meta.nShot} inquadrature · ${state.plan.meta.durata}s · ritmo ${state.plan.meta.ritmo.toLowerCase()} · ${state.plan.meta.formato}` }),
     ]),
     el('div', { class: 'plan-head-actions no-print' }, [
@@ -173,7 +194,19 @@ function renderPlan() {
   })));
 
   const panel = el('div', { class: 'panel' });
-  view.append(head, tabBar, panel);
+  view.append(head);
+
+  // esito del ponte: si vede una volta, poi si chiude
+  const report = bridgeReportBox(state.plan.meta.bridgeReport);
+  if (report) {
+    report.append(el('button', {
+      class: 'btn btn-ghost btn-sm no-print', type: 'button', text: 'Ho capito, chiudi',
+      onclick: () => setState({ plan: { ...state.plan, meta: { ...state.plan.meta, bridgeReport: null } } }),
+    }));
+    view.append(report);
+  }
+
+  view.append(tabBar, panel);
 
   if (state.tab === 'shotlist') renderShotlist(panel, { plan: state.plan, onRegenerate: regenerateShot });
   else if (state.tab === 'timeline') renderTimeline(panel, { plan: state.plan, onSelect: selectShot });

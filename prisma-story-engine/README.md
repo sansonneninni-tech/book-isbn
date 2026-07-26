@@ -72,16 +72,41 @@ prisma-story-engine/
     │   ├── generator.js  pipeline di generazione
     │   ├── constraints.js regole e riparazione
     │   └── analysis.js   diagnostica + note di montaggio
-    ├── adapters/         local | claude | openai (stessa interfaccia)
+    │   └── ai-plan.js     prompt del ponte + validazione della risposta
+    ├── adapters/         local | manual | openai | claude (stessa interfaccia)
     ├── ui/               wizard, structures, shotlist, timeline, analysis, shooting, exports
     └── util/             rng seedato, helper DOM
 ```
 
-## Adapter LLM (opzionale)
+## Modalità AI
 
-Il motore locale è sempre attivo e **definisce la struttura**. Un provider esterno non la sostituisce: riscrive soltanto `soggetto`, `funzione` e `alternativa`, rendendoli concreti sui materiali reali. Durate, scale, movimenti, colori, atti e raccordi restano deterministici. Se la chiamata fallisce, l'app ricade automaticamente sul locale.
+Quattro provider, selezionabili dal pulsante ⚙ nella toolbar. **In tutti e quattro i casi i vincoli di ripresa restano del motore locale**: durate, varietà di scale, alternanza dei movimenti, raccordi e riparazione vengono ricalcolati qui. Il modello propone, il motore verifica.
 
-Si configura dal pulsante ⚙ nella toolbar: provider, chiave, modello, endpoint.
+| Provider | Costo | Come funziona |
+|---|---|---|
+| **Locale** (default) | — | Deterministico, istantaneo, offline |
+| **Ponte copia-incolla** | gratis | L'app prepara il prompt, tu lo porti nella chat che già usi, riporti indietro la risposta |
+| **OpenAI / Claude API** | a consumo | Automatico, richiede una chiave |
+
+### Il ponte copia-incolla
+
+Scelta la struttura, si apre un modale con il prompt già pronto: lo copi, lo incolli in ChatGPT (o Claude, o qualunque altra chat), e riporti indietro la risposta. Nessuna richiesta di rete parte dall'app, quindi **funziona anche nella versione single-file e nell'artifact pubblicato**.
+
+Il modello restituisce la *beat map*: per ogni inquadratura funzione narrativa, atto, ruolo, peso di durata, intensità, posizione sull'arco cromatico, finestra di scale e banda di movimento — più soggetto e alternativa scritti sui materiali reali. Non decide durate, colori esatti né raccordi: quelli restano calcolati.
+
+Quello che torna passa da `engine/ai-plan.js`, che non rifiuta mai in blocco ma **normalizza e ripara**, poi dice cosa ha corretto:
+
+- estrae il JSON anche se la chat ha aggiunto prosa o un blocco di codice attorno;
+- riporta nel dominio valido intensità, pesi, indici di scala e posizioni cromatiche fuori range;
+- forza i ruoli portanti (prima inquadratura = apertura, ultima = chiusura, una sola svolta, assegnata alla più intensa);
+- riallinea gli atti fuori sequenza;
+- segnala atti vuoti, arco di intensità piatto e campi mancanti — che vengono compilati dal motore.
+
+Se la risposta è illeggibile, o se annulli, il piano si genera comunque in locale. La rigenerazione del singolo shot resta sempre locale e istantanea: sul set non si aspetta.
+
+### Adapter API
+
+`OpenAI` e `Claude` chiamano l'API direttamente e ricadono sul locale in caso di errore. Sono già scritti; servono solo chiave e modello.
 
 Interfaccia da rispettare per aggiungere un provider (`src/adapters/`):
 
@@ -94,7 +119,7 @@ Interfaccia da rispettare per aggiungere un provider (`src/adapters/`):
 }
 ```
 
-**Nota sulle chiavi API:** una chiave inserita qui resta nel `localStorage` del browser ed è leggibile da chiunque usi quel dispositivo o da qualsiasi script caricato nella pagina. Va bene per uso personale su una macchina tua; per un uso condiviso, imposta un tuo proxy nel campo *Endpoint* e lascia vuoto il campo chiave, così il segreto resta sul server.
+**Nota sulle chiavi API** (solo per i provider automatici)**:** una chiave inserita qui resta nel `localStorage` del browser ed è leggibile da chiunque usi quel dispositivo o da qualsiasi script caricato nella pagina. Va bene per uso personale su una macchina tua; per un uso condiviso, imposta un tuo proxy nel campo *Endpoint* e lascia vuoto il campo chiave, così il segreto resta sul server.
 
 ## Aggiungere una struttura narrativa
 

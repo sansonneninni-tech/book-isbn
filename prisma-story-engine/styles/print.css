@@ -1,0 +1,26 @@
+/* Stampa / PDF: esce il piano completo, senza controlli. */
+@page { margin: 14mm; }
+
+body { background: #fff !important; color: #111 !important; }
+body::before { display: none !important; }
+.toolbar, .tabs, .no-print, .toast, .plan-head-actions, .shot-actions, .frames, .modal { display: none !important; }
+.panel { display: none !important; }
+.print-only { display: block !important; }
+
+.view { max-width: none; padding: 0; gap: 8px; }
+.card, .shot {
+  background: #fff !important;
+  border: 1px solid #ccc !important;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+}
+.plan-head h2 { font-size: 16pt; }
+.muted, .funzione, .link, .alt { color: #444 !important; }
+.act-head { border-bottom: 1px solid #999; color: #000; margin-top: 10px; }
+.shot-color { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.pill { background: #eee !important; color: #333 !important; }
+.links { border-left-color: #ccc !important; }
+h2, h3, h4 { color: #000; }
+a { color: #000; text-decoration: none; }

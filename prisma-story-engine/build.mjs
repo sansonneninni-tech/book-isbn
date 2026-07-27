@@ -59,6 +59,21 @@ const registry = order.map((path) => {
   return `__def(${JSON.stringify(m.id)}, function (__req) {\n${m.code}\nreturn { ${m.exports.join(', ')} };\n});`;
 }).join('\n\n');
 
+// Foglio di stile del solo messaggio di avvio fallito: non sta nei css del
+// progetto perche' deve funzionare anche quando non funziona nient'altro.
+const bootCss = `
+#boot {
+  position: relative; z-index: 2;
+  max-width: 620px; margin: 12vh auto; padding: 26px 24px;
+  border: 1px solid #262c3d; border-radius: 14px; background: #161a26;
+  font: 16px/1.55 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; color: #eceef5;
+}
+#boot h1 { font-size: 1.2rem; margin: 0 0 12px; color: #e0a24a; }
+#boot p { margin: 0 0 10px; color: #c6cbdb; }
+#boot #boot-err:empty { display: none; }
+#boot #boot-err { font-family: ui-monospace, Menlo, monospace; font-size: .82rem; color: #e8b84b; }
+`;
+
 const css = ['styles/base.css', 'styles/components.css']
   .map((f) => readFileSync(resolve(ROOT, f), 'utf8'))
   .join('\n');
@@ -67,13 +82,15 @@ const printCss = readFileSync(resolve(ROOT, 'styles/print.css'), 'utf8');
 // Il charset va dichiarato dentro il file: aperto con un doppio clic (file://)
 // non c'e' nessun header HTTP a dirlo, e senza questa riga gli accenti e le
 // virgolette italiane diventano "Ã¨" e "â€™".
-const html = `<meta charset="utf-8" />
+const html = `<!doctype html>
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark light" />
 <title>PRISMA Story Engine</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polygon points='16,3 29,27 3,27' fill='none' stroke='%23e0a24a' stroke-width='2.5'/></svg>" />
 <style>
 ${css}
+${bootCss}
 @media print {
 ${printCss}
 }
@@ -82,6 +99,15 @@ ${printCss}
 <header id="toolbar" class="toolbar"></header>
 <main id="view" class="view"></main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Se il programma non parte, la pagina resterebbe nera e muta: questo blocco
+     e' visibile finche' l'avvio non riesce, e viene rimosso appena riesce. -->
+<div id="boot">
+  <h1>PRISMA Story Engine</h1>
+  <p>Il file si è aperto, ma il programma dentro non è partito.</p>
+  <p>Quasi sempre è perché il download si è interrotto e il file è arrivato incompleto: <strong>riscaricalo</strong> e riapri. Se non basta, apri la versione online, che è identica.</p>
+  <p id="boot-err"></p>
+</div>
 
 <script>
 (function () {
@@ -97,7 +123,15 @@ ${printCss}
 
 ${registry}
 
-  __req(${JSON.stringify(idOf(ENTRY))});
+  try {
+    __req(${JSON.stringify(idOf(ENTRY))});
+    var boot = document.getElementById('boot');
+    if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
+  } catch (err) {
+    var out = document.getElementById('boot-err');
+    if (out) out.textContent = 'Dettaglio tecnico: ' + ((err && err.message) || err);
+    throw err;
+  }
 })();
 </script>
 `;

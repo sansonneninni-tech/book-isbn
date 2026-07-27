@@ -4,9 +4,9 @@
 // Principio: il modello propone, il motore dispone. Qualunque cosa torni indietro
 // passa da qui, viene normalizzata e riparata; i vincoli di ripresa restano nostri.
 
-import { SCALES, MOVE_BANDS, RHYTHMS, LIGHT_ARCS } from './vocabulary.js';
+import { SCALES, MOVE_BANDS, RHYTHMS, getLight } from './vocabulary.js';
 import { getStructure } from './structures.js';
-import { colorName } from './color.js';
+import { colorName, paletteEnds } from './color.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const isStr = (v) => typeof v === 'string' && v.trim().length > 0;
@@ -25,11 +25,38 @@ export function suggestedShotCount(input) {
 // Prompt
 // ---------------------------------------------------------------------------
 
+/** Le tre risposte iniziali: la parte non tecnica, quella che rende il reel di qualcuno. */
+function rootsBlock(input) {
+  const rows = [
+    ['Perché questo lavoro, e perché adesso', input.movente],
+    ['Cosa deve restare a chi guarda', input.lascito],
+    ['Cosa NON deve esserci', input.rifiuto],
+  ].filter(([, v]) => isStr(v));
+  if (!rows.length) return '';
+  return `\n## Le parole dell'autore\n\nQueste tre risposte contano più dei parametri tecnici: sono il criterio con cui giudicare ogni inquadratura.\n\n${rows.map(([k, v]) => `${k}: ${String(v).trim()}`).join('\n')}\n`;
+}
+
+/** Riga palette: la modalità omogenea è una scelta, non l'assenza di una scelta. */
+function paletteLine(input) {
+  const p = paletteEnds(input);
+  if (p.flat) {
+    return `Palette: OMOGENEA — tutto il reel resta su ${colorName(p.base)} (${p.base}). Cambiano solo luminosità e saturazione, mai la tinta. NON introdurre colori diversi né contrasti cromatici: la coerenza è voluta, e il viaggio lo devono fare scala, movimento e ritmo.`;
+  }
+  return `Palette: da ${colorName(p.from)} (${p.from}) a ${colorName(p.to)} (${p.to})`;
+}
+
+function lightLine(input) {
+  const light = getLight(input.lightArc);
+  return light.fixed
+    ? `Luce: COSTANTE — ${light.text}. NON far evolvere la luce da un'inquadratura all'altra: resta identica per tutto il reel.`
+    : `Luce: ${light.label} (evolve durante il reel)`;
+}
+
 export function buildBridgePrompt(input, structureId) {
   const structure = getStructure(structureId);
   const n = suggestedShotCount(input);
   const rhythm = RHYTHMS.find((r) => r.id === input.ritmo) || RHYTHMS[1];
-  const light = LIGHT_ARCS.find((l) => l.id === input.lightArc) || LIGHT_ARCS[0];
+  const flat = paletteEnds(input).flat;
   const materials = String(input.materiali || '').split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
 
   const scaleTable = SCALES.map((s) => `${s.i} = ${s.label}`).join(' · ');
@@ -37,15 +64,15 @@ export function buildBridgePrompt(input, structureId) {
     .map(([k, [lo, hi]]) => `"${k}" (energia ${lo}–${hi})`).join(' · ');
 
   return `Sei un direttore della fotografia. Devi progettare la struttura di un reel verticale 9:16 di natura artistica.
-
+${rootsBlock(input)}
 ## Il progetto
 
 Idea: ${input.idea || '(non specificata)'}
 Emozione: si parte da "${input.emozioneIniziale || 'non specificata'}" e si arriva a "${input.emozioneFinale || 'non specificata'}"
 Materiali realmente disponibili: ${materials.length ? materials.join(', ') : '(nessuno indicato — usa soggetti astratti e generici)'}
 Figure umane in campo: ${input.persone ? 'sì' : 'NO — non nominare mai persone, mani, volti o corpi'}
-Palette: da ${colorName(input.paletteIniziale)} (${input.paletteIniziale}) a ${colorName(input.paletteFinale)} (${input.paletteFinale})
-Luce: ${light.label}
+${paletteLine(input)}
+${lightLine(input)}
 Ritmo: ${rhythm.label} (${rhythm.note})
 Durata totale: ${input.durata}s
 
@@ -80,9 +107,10 @@ Vincoli non negoziabili:
 3. Ogni atto (1, 2, 3) ha almeno una inquadratura.
 4. Le finestre "scale" di inquadrature vicine devono essere diverse: alterna stretto e largo.
 5. La curva delle "i" deve avere un arco riconoscibile, non essere piatta.
-6. I soggetti devono essere coerenti con la palette: all'inizio del reel domina il primo colore,
-   alla fine il secondo. Non descrivere colori in contrasto con quelli indicati sopra.
-
+6. ${flat
+    ? 'I soggetti devono restare dentro la palette omogenea: nessun colore estraneo, nessun contrasto cromatico. Con colore e luce fermi, la progressione deve essere costruita su scala, densità, movimento e ritmo — rendila esplicita nelle "fn".'
+    : 'I soggetti devono essere coerenti con la palette: all\'inizio del reel domina il primo colore, alla fine il secondo. Non descrivere colori in contrasto con quelli indicati sopra.'}
+${isStr(input.rifiuto) ? `7. È vietato tutto ciò che l'autore ha escluso ("${String(input.rifiuto).trim()}"): se un'idea ci ricade dentro, scartala e trovane un'altra.\n` : ''}
 ## Formato
 
 Rispondi SOLO con questo JSON, senza testo prima o dopo, senza blocchi di codice:
@@ -91,6 +119,67 @@ Rispondi SOLO con questo JSON, senza testo prima o dopo, senza blocchi di codice
  {"fn":"Stabilire lo stato di quiete","soggetto":"La superficie d'acqua ferma, con il riflesso del cielo","alternativa":"La stessa acqua ripresa solo come texture, senza orizzonte","act":1,"role":"apertura","w":1.3,"i":0.18,"c":0,"scale":[4,6],"move":"static"},
  {"fn":"Il primo segno del cambiamento","soggetto":"La goccia che rompe la superficie e il cerchio che si allarga","alternativa":"Lo stesso impatto visto da sopra, contro la luce","act":1,"role":"sviluppo","w":0.8,"i":0.3,"c":0.15,"scale":[0,1],"move":"soft"}
 ]}`;
+}
+
+/**
+ * Prompt per rigenerare UNA sola inquadratura.
+ * Il modello vede il contesto (cosa viene prima, cosa viene dopo) e riscrive solo
+ * quella: la sua funzione nel piano, la durata, il colore e l'atto restano fissi,
+ * perché toccarli vorrebbe dire rifare tutto il montaggio attorno.
+ */
+export function buildShotPrompt(input, plan, index) {
+  const shot = plan.shots[index];
+  const prev = plan.shots[index - 1];
+  const next = plan.shots[index + 1];
+  const materials = String(input.materiali || '').split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+  const scaleTable = SCALES.map((s) => `${s.i} = ${s.label}`).join(' · ');
+  const bandTable = Object.keys(MOVE_BANDS).map((k) => `"${k}"`).join(' · ');
+  const around = (s, dove) => (s
+    ? `${dove}: «${s.soggetto}» — ${s.scala.label}, ${s.movimento.label.toLowerCase()}, dominante ${s.colore.nome}`
+    : `${dove}: niente (è l'estremo del reel)`);
+
+  return `Sei un direttore della fotografia. Stai rivedendo UNA sola inquadratura dentro un reel verticale 9:16 già progettato.
+${rootsBlock(input)}
+## Il progetto in due righe
+
+Idea: ${input.idea || '(non specificata)'}
+Materiali realmente disponibili: ${materials.length ? materials.join(', ') : '(nessuno indicato — resta astratto)'}
+Figure umane in campo: ${input.persone ? 'sì' : 'NO — non nominare mai persone, mani, volti o corpi'}
+${paletteLine(input)}
+${lightLine(input)}
+Struttura: "${plan.meta.strutturaNome}" — ${plan.meta.tagline}
+
+## L'inquadratura da rifare (numero ${shot.n} di ${plan.shots.length})
+
+Funzione narrativa attuale: ${shot.funzione}
+Atto ${shot.act} · ruolo "${shot.role}" · intensità ${Math.round(shot.intensita * 100)}%
+Durata ${shot.durata}s · dominante ${shot.colore.nome} · luce: ${shot.luce}
+Adesso dice: «${shot.soggetto}» — ${shot.scala.label}, ${shot.movimento.label.toLowerCase()}
+${around(prev, 'Prima viene')}
+${around(next, 'Dopo viene')}
+
+## Cosa devi restituire
+
+Una versione migliore di QUESTA inquadratura, che occupi lo stesso posto nel racconto.
+Non cambiare durata, colore, atto o intensità: non sono tuoi, li calcola il programma.
+
+Vincoli:
+1. "soggetto" descrive solo COSA si inquadra, con i materiali disponibili (max 18 parole).
+   NON nominare il tipo di piano (niente "primo piano", "macro", "totale"): la scala esatta
+   la sceglie il programma dentro la finestra "scale" che indichi, e se la nomini vi contraddite.
+2. La finestra "scale" deve essere diversa da quella dell'inquadratura prima e dopo:
+   due piani uguali di fila leggono come un errore di montaggio.
+3. "move" deve avere un'energia diversa da quella dei vicini.
+4. "fn" può restare la stessa o essere riformulata, ma deve mantenere la stessa funzione nel racconto.
+${isStr(input.rifiuto) ? `5. È vietato tutto ciò che l'autore ha escluso ("${String(input.rifiuto).trim()}").\n` : ''}
+Scale: ${scaleTable}
+Bande di movimento: ${bandTable}
+
+## Formato
+
+Rispondi SOLO con questo JSON, senza testo prima o dopo:
+
+{"fn":"La funzione narrativa in max 14 parole","soggetto":"Cosa si inquadra, max 18 parole","alternativa":"Un modo diverso di riprendere lo stesso beat se sul posto non funziona","scale":[0,2],"move":"soft"}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +201,46 @@ export function extractJson(text) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Normalizza la risposta per una singola inquadratura.
+ * Ritorna null solo se non c'è proprio niente di utilizzabile: un JSON con il
+ * solo soggetto vale comunque, il resto lo mette il motore.
+ * @returns {{fn?:string, soggetto?:string, alternativa?:string, scale?:number[], move?:string, report:Array}|null}
+ */
+export function normalizeAiShot(data, plan, index) {
+  if (!data || typeof data !== 'object') return null;
+  const r = Array.isArray(data) ? data[0] : (data.shots?.[0] || data.shot || data);
+  if (!r || typeof r !== 'object') return null;
+
+  const report = [];
+  const out = { report };
+  if (isStr(r.fn)) out.fn = r.fn.trim();
+  if (isStr(r.soggetto)) out.soggetto = r.soggetto.trim();
+  if (isStr(r.alternativa)) out.alternativa = r.alternativa.trim();
+
+  if (Array.isArray(r.scale) && r.scale.length >= 2) {
+    let a = clamp(Math.round(num(r.scale[0], 2)), 0, 6);
+    let b = clamp(Math.round(num(r.scale[1], a + 1)), 0, 6);
+    if (a > b) [a, b] = [b, a];
+    // finestra puntiforme uguale a un vicino: la allargo, altrimenti il vincolo
+    // duro la sposterebbe comunque e la proposta del modello resterebbe lettera morta
+    const neighbours = [plan.shots[index - 1]?.scala.i, plan.shots[index + 1]?.scala.i].filter((v) => v != null);
+    if (a === b && neighbours.includes(a)) {
+      b = clamp(b + 1, 0, 6);
+      a = clamp(a - 1, 0, 6);
+      report.push({ level: 'info', msg: 'La scala proposta era identica a quella di un’inquadratura vicina: ho allargato la finestra.' });
+    }
+    out.scale = [a, b];
+  }
+
+  if (BANDS.includes(r.move)) out.move = r.move;
+  else if (r.move != null) report.push({ level: 'info', msg: `Banda di movimento "${r.move}" non riconosciuta: la sceglie il motore.` });
+
+  if (!out.soggetto && !out.fn && !out.scale && !out.move) return null;
+  if (!out.soggetto) report.push({ level: 'warn', msg: 'Nessun soggetto nella risposta: lo compila il motore locale.' });
+  return out;
 }
 
 /**

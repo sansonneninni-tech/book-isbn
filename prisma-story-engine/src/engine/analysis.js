@@ -50,7 +50,16 @@ export function analyze(plan) {
   const dh = hueDistance(h0.h, hN.h);
   const dl = Math.abs(h0.l - hN.l);
   const spread = Math.max(...shots.map((s) => hueDistance(hexToHsl(s.colore.hex).h, h0.h)));
-  if (meta.struttura === 'ciclo') {
+  if (meta.paletteFlat) {
+    // palette omogenea: la piattezza cromatica e' voluta, non e' un difetto
+    push('ok', 'Palette omogenea', `Tutto il reel resta su ${shots[0].colore.nome}, con ${Math.round(dl)} punti di escursione in luminosità. Il viaggio lo devono fare scala, movimento e ritmo.`);
+    const flatIntensity = range < 0.45;
+    if (meta.luceFissa && flatIntensity) {
+      push('error', 'Non si muove niente', 'Palette omogenea, luce costante e intensità quasi piatta insieme: senza almeno una di queste tre cose in movimento non c’è progressione, e il reel legge come un unico fotogramma lungo. Alza il picco o accetta un’escursione di luminosità più ampia.');
+    } else if (meta.luceFissa) {
+      push('ok', 'Coerenza voluta', 'Colore e luce restano fermi per scelta: la narrazione passa tutta da scala, movimento e durate — e lì l’escursione c’è.');
+    }
+  } else if (meta.struttura === 'ciclo') {
     if (spread < 25) push('warn', 'Ciclo senza viaggio', 'Il Ciclo torna al punto di partenza, ma nel mezzo il colore non si allontana mai abbastanza: il ritorno non si sente. Allarga la palette finale.');
     else push('ok', 'Ciclo cromatico', `Il colore si allontana fino a ${Math.round(spread)}° e rientra: il ritorno sarà percepibile.`);
   } else if (dh < 18 && dl < 12) {
@@ -114,7 +123,12 @@ export function editingNotes(plan) {
   const actionCuts = shots.filter((s) => s.linkPrev.tipo === 'movimento').map((s) => s.n);
   if (actionCuts.length) notes.push(`Match on action: shot ${actionCuts.join(', ')} — taglia a metà del movimento, mai all’inizio o alla fine.`);
 
-  notes.push(`Grading: porta la dominante ${dalColore(shots[0].colore.nome)} ${alColore(shots[shots.length - 1].colore.nome)} in modo progressivo, senza salti fra shot adiacenti.`);
+  if (meta.paletteFlat) {
+    notes.push(`Grading: una sola dominante per tutto, ${shots[0].colore.nome}. Lavora su luminosità e contrasto, non sulla tinta: un solo shot che vira fuori palette si nota più di dieci tagli sbagliati.`);
+  } else {
+    notes.push(`Grading: porta la dominante ${dalColore(shots[0].colore.nome)} ${alColore(shots[shots.length - 1].colore.nome)} in modo progressivo, senza salti fra shot adiacenti.`);
+  }
+  if (meta.luceFissa) notes.push(`Luce costante (${meta.luceLabel || 'stessa per tutto il reel'}): non cambiare sorgente fra un’inquadratura e l’altra, e in post non correggere l’esposizione shot per shot — la costanza è la scelta.`);
   if (['pulsato', 'serrato', 'sincopato'].includes(meta.ritmoId)) notes.push('Allinea ogni stacco a un accento della traccia: con questo ritmo un taglio fuori beat si sente subito.');
   else notes.push('Con questo ritmo evita di tagliare sul beat: lascia che le immagini scivolino leggermente rispetto alla musica.');
 

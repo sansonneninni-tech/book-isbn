@@ -64,7 +64,14 @@ const css = ['styles/base.css', 'styles/components.css']
   .join('\n');
 const printCss = readFileSync(resolve(ROOT, 'styles/print.css'), 'utf8');
 
-const html = `<title>PRISMA Story Engine</title>
+// Il charset va dichiarato dentro il file: aperto con un doppio clic (file://)
+// non c'e' nessun header HTTP a dirlo, e senza questa riga gli accenti e le
+// virgolette italiane diventano "Ã¨" e "â€™".
+const html = `<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<title>PRISMA Story Engine</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polygon points='16,3 29,27 3,27' fill='none' stroke='%23e0a24a' stroke-width='2.5'/></svg>" />
 <style>
 ${css}
 @media print {

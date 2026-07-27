@@ -127,12 +127,35 @@ export const LIGHT_ARCS = [
   },
 ];
 
-export function lightAt(arcId, t, intensity) {
+/**
+ * Luci che NON evolvono. Non sono un ripiego: tenere la luce identica per tutto
+ * il reel e' una scelta, e sposta il peso della narrazione su scala e ritmo.
+ */
+export const LIGHT_FIXED = [
+  { id: 'fissa-diffusa', label: 'Costante — diffusa e morbida', text: 'Luce diffusa costante, nessuna ombra netta, stessa quantità dall’inizio alla fine' },
+  { id: 'fissa-dura', label: 'Costante — dura e direzionale', text: 'Taglio duro costante, ombre incise sempre nella stessa direzione' },
+  { id: 'fissa-controluce', label: 'Costante — controluce', text: 'Controluce fisso: bordi accesi e corpo in ombra, identico per tutto il reel' },
+  { id: 'fissa-penombra', label: 'Costante — penombra', text: 'Penombra costante, una sola sorgente bassa fuori campo' },
+  { id: 'fissa-piena', label: 'Costante — piena e neutra', text: 'Luce piena e neutra, costante: dalla luce non arriva nessuna drammatizzazione' },
+  { id: 'fissa-artificiale', label: 'Costante — artificiale notturna', text: 'Sorgenti artificiali fisse, stessa temperatura e stessa posizione per tutto il reel' },
+];
+
+/** Risolve un id di luce, fissa o in evoluzione. Ritorna sempre qualcosa. */
+export function getLight(arcId) {
+  const fixed = LIGHT_FIXED.find((l) => l.id === arcId);
+  if (fixed) return { ...fixed, fixed: true };
   const arc = LIGHT_ARCS.find((a) => a.id === arcId) || LIGHT_ARCS[0];
-  const idx = Math.min(arc.stages.length - 1, Math.floor(t * arc.stages.length));
+  return { ...arc, fixed: false };
+}
+
+export function lightAt(arcId, t, intensity) {
+  const light = getLight(arcId);
+  // luce costante: nessun modificatore, restare identici e' proprio il punto
+  if (light.fixed) return light.text;
+  const idx = Math.min(light.stages.length - 1, Math.floor(t * light.stages.length));
   const mod = intensity > 0.8 ? ' — punto di massima esposizione'
     : intensity < 0.25 ? ' — tenuta bassa, poca informazione' : '';
-  return arc.stages[idx] + mod;
+  return light.stages[idx] + mod;
 }
 
 /** Materiali di ripiego quando l'utente non elenca nulla di concreto. */

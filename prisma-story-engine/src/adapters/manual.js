@@ -3,14 +3,16 @@
 // comunque durate, colori, scale, movimenti, raccordi e riparazione dei vincoli.
 
 import { localAdapter } from './local.js';
-import { generatePlan } from '../engine/generator.js';
-import { buildBridgePrompt, extractJson, normalizeAiPlan, suggestedShotCount } from '../engine/ai-plan.js';
+import { generatePlan, regenerateShot } from '../engine/generator.js';
+import { buildBridgePrompt, buildShotPrompt, extractJson, normalizeAiPlan, normalizeAiShot, suggestedShotCount } from '../engine/ai-plan.js';
 import { getStructure } from '../engine/structures.js';
 
 /**
  * @param {{requestPaste: (ctx:Object)=>Promise<string|null>}} deps
  */
 export function makeManualAdapter(deps = {}) {
+  const canAsk = () => typeof deps.requestPaste === 'function';
+
   return {
     id: 'manual',
     label: 'ChatGPT / Claude via copia-incolla',
@@ -22,15 +24,23 @@ export function makeManualAdapter(deps = {}) {
     },
 
     async generatePlan(input, structureId, seed) {
-      if (typeof deps.requestPaste !== 'function') {
-        return localAdapter.generatePlan(input, structureId, seed);
-      }
+      if (!canAsk()) return localAdapter.generatePlan(input, structureId, seed);
 
-      const prompt = buildBridgePrompt(input, structureId);
+      const n = suggestedShotCount(input);
       const pasted = await deps.requestPaste({
-        prompt,
-        shotCount: suggestedShotCount(input),
-        structureName: getStructure(structureId).name,
+        prompt: buildBridgePrompt(input, structureId),
+        title: 'Ponte copia-incolla — piano completo',
+        subtitle: `Struttura “${getStructure(structureId).name}” · ${n} inquadrature richieste. Nessun dato esce da qui: sei tu a portare il prompt nella chat.`,
+        applyLabel: '2 · Applica al piano',
+        validate: (text) => {
+          const data = extractJson(text);
+          const shots = Array.isArray(data?.shots) ? data.shots : Array.isArray(data) ? data : null;
+          if (!shots) return { ok: false, msg: 'Non trovo un JSON valido. Copia tutta la risposta, comprese le parentesi graffe.' };
+          return {
+            ok: true,
+            msg: `Trovate ${shots.length} inquadrature${shots.length === n ? '' : ` (ne erano state chieste ${n})`}. Puoi applicare.`,
+          };
+        },
       });
 
       // annullato: si procede col motore locale, senza penalizzare l'utente
@@ -56,9 +66,52 @@ export function makeManualAdapter(deps = {}) {
       return plan;
     },
 
-    // la rigenerazione del singolo shot resta locale: sul set non si aspetta
+    /**
+     * Anche la singola inquadratura passa dal ponte: e' il punto in cui si sente
+     * di piu' la differenza fra "un'altra combinazione" e "un'altra idea".
+     * Chi ha fretta annulla e ottiene la rigenerazione locale, istantanea.
+     */
     async regenerateShot(plan, input, index) {
-      return localAdapter.regenerateShot(plan, input, index);
+      if (!canAsk()) return localAdapter.regenerateShot(plan, input, index);
+
+      const shot = plan.shots[index];
+      const pasted = await deps.requestPaste({
+        prompt: buildShotPrompt(input, plan, index),
+        title: `Ponte copia-incolla — inquadratura ${shot.n}`,
+        subtitle: `Solo questa inquadratura. Durata (${shot.durata}s), colore e posizione nel racconto restano come sono: cambia il modo di riprenderla.`,
+        applyLabel: 'Applica a questa inquadratura',
+        cancelLabel: 'Annulla e rigenera in locale',
+        validate: (text) => {
+          const res = normalizeAiShot(extractJson(text), plan, index);
+          if (!res) return { ok: false, msg: 'Non trovo un JSON valido. Copia tutta la risposta, comprese le parentesi graffe.' };
+          return {
+            ok: true,
+            msg: res.soggetto ? `Trovato: «${res.soggetto}». Puoi applicare.` : 'Risposta leggibile, ma senza soggetto: il resto lo completa il motore.',
+          };
+        },
+      });
+
+      if (pasted == null) return localAdapter.regenerateShot(plan, input, index);
+
+      const ai = normalizeAiShot(extractJson(pasted), plan, index);
+      if (!ai) {
+        const fallback = regenerateShot(plan, input, index, Date.now());
+        fallback.meta = {
+          ...fallback.meta,
+          bridgeReport: [{ level: 'warn', msg: `Inquadratura ${shot.n}: risposta illeggibile, rigenerata dal motore locale.` }],
+        };
+        return fallback;
+      }
+
+      const next = regenerateShot(plan, input, index, Date.now(), ai);
+      next.meta = {
+        ...next.meta,
+        bridgeReport: [
+          { level: 'ok', msg: `Inquadratura ${shot.n} riscritta da ChatGPT. Durata, colore e funzione nel racconto sono rimasti quelli del piano.` },
+          ...(ai.report || []),
+        ],
+      };
+      return next;
     },
   };
 }

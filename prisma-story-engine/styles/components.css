@@ -13,7 +13,13 @@
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer;
+  border-radius: 10px;
+}
+.brand:hover strong { color: var(--accent); }
+.brand:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 4px; }
 .brand strong { display: block; font-size: .98rem; letter-spacing: .02em; }
 .brand .muted { font-size: .8rem; }
 .logo {
@@ -41,6 +47,8 @@
 .btn-primary:hover { filter: brightness(1.07); background: linear-gradient(180deg, var(--accent), #c9873a); }
 .btn-ghost { background: transparent; }
 .btn-danger { color: #ffb4b4; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn:disabled:hover { background: var(--card-2); border-color: var(--line); }
 
 /* ---------- card / form ---------- */
 .card {
@@ -94,6 +102,41 @@ input[type=color] { width: 100%; height: 46px; padding: 3px; background: #0e1119
 .rhythm:has(input:checked) { border-color: var(--accent); background: rgba(224, 162, 74, .09); }
 
 .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+
+/* ---------- scelta a due vie (palette) ---------- */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.choice {
+  position: relative;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px;
+  background: #0e1119; cursor: pointer;
+}
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice span { color: var(--muted); font-size: .82rem; }
+.choice:has(input:checked) { border-color: var(--accent); background: rgba(224, 162, 74, .09); }
+
+/* ---------- le tre domande di partenza ---------- */
+.roots .question { position: relative; padding-left: 58px; }
+.question-n {
+  position: absolute; left: 18px; top: 16px;
+  font-size: 1.6rem; font-weight: 300; color: var(--accent); opacity: .55;
+  font-variant-numeric: tabular-nums;
+}
+.question-q { font-size: 1.05rem; font-weight: 620; margin-bottom: 5px; }
+@media (max-width: 560px) {
+  .roots .question { padding-left: 18px; padding-top: 46px; }
+  .question-n { top: 12px; font-size: 1.35rem; }
+}
+
+/* ---------- pannello esporta ---------- */
+.export-list { display: flex; flex-direction: column; gap: 4px; margin: 14px 0 18px; }
+.export-row {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.export-row .field-hint { margin: 2px 0 0; }
+.export-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.export-paste { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; }
 
 /* ---------- strutture ---------- */
 .structure-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }

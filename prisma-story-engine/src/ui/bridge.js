@@ -1,14 +1,35 @@
 // Ponte copia-incolla verso ChatGPT (o qualunque altra chat).
 // Nessuna rete: il prompt esce dagli appunti, la risposta rientra da una textarea.
+// Lo stesso modale serve sia per il piano intero sia per la singola inquadratura:
+// cambiano solo il testo e il controllo sulla risposta.
 
-import { el, clear } from '../util/dom.js';
+import { el } from '../util/dom.js';
 import { extractJson } from '../engine/ai-plan.js';
+
+/** Controllo di default: basta che dentro ci sia del JSON leggibile. */
+function defaultValidate(text) {
+  const data = extractJson(text);
+  return data
+    ? { ok: true, msg: 'Risposta leggibile. Puoi applicare.' }
+    : { ok: false, msg: 'Non trovo un JSON valido. Copia tutta la risposta, comprese le parentesi graffe.' };
+}
 
 /**
  * Apre il modale e risolve con il testo incollato, o con null se si annulla.
+ * @param {{prompt:string, title?:string, subtitle?:string, validate?:Function,
+ *          applyLabel?:string, cancelLabel?:string}} opts
  * @returns {Promise<string|null>}
  */
-export function openBridge({ prompt, shotCount, structureName }) {
+export function openBridge(opts) {
+  const {
+    prompt,
+    title = 'Ponte copia-incolla',
+    subtitle = '',
+    validate = defaultValidate,
+    applyLabel = '2 · Applica al piano',
+    cancelLabel = 'Annulla e usa il motore locale',
+  } = opts;
+
   return new Promise((resolve) => {
     let done = false;
     const finish = (value) => {
@@ -32,7 +53,7 @@ export function openBridge({ prompt, shotCount, structureName }) {
       } catch {
         promptBox.focus();
         promptBox.select();
-        copyHint.textContent = 'Gli appunti non sono accessibili qui: il testo è selezionato, copialo con Ctrl+C (o ⌘C).';
+        copyHint.textContent = 'Gli appunti non sono accessibili qui: il testo è selezionato, copialo con ⌘C (o Ctrl+C).';
       }
     });
 
@@ -41,7 +62,7 @@ export function openBridge({ prompt, shotCount, structureName }) {
       placeholder: 'Incolla qui la risposta di ChatGPT (il JSON, anche con del testo attorno)',
     });
     const status = el('p', { class: 'bridge-status', text: 'In attesa della risposta…' });
-    const applyBtn = el('button', { class: 'btn btn-primary', type: 'button', text: '2 · Applica al piano', disabled: true });
+    const applyBtn = el('button', { class: 'btn btn-primary', type: 'button', text: applyLabel, disabled: true });
 
     answer.addEventListener('input', () => {
       const text = answer.value.trim();
@@ -51,25 +72,18 @@ export function openBridge({ prompt, shotCount, structureName }) {
         applyBtn.disabled = true;
         return;
       }
-      const data = extractJson(text);
-      const shots = Array.isArray(data?.shots) ? data.shots : Array.isArray(data) ? data : null;
-      if (!shots) {
-        status.className = 'bridge-status is-bad';
-        status.textContent = 'Non trovo un JSON valido. Copia tutta la risposta, comprese le parentesi graffe.';
-        applyBtn.disabled = true;
-        return;
-      }
-      status.className = 'bridge-status is-good';
-      status.textContent = `Trovate ${shots.length} inquadrature${shots.length === shotCount ? '' : ` (ne erano state chieste ${shotCount})`}. Puoi applicare.`;
-      applyBtn.disabled = false;
+      const res = validate(text);
+      status.className = `bridge-status ${res.ok ? 'is-good' : 'is-bad'}`;
+      status.textContent = res.msg;
+      applyBtn.disabled = !res.ok;
     });
 
     applyBtn.addEventListener('click', () => finish(answer.value));
 
     const dlg = el('dialog', { class: 'modal modal-wide bridge' }, [
       el('header', { class: 'bridge-head' }, [
-        el('h2', { text: 'Ponte copia-incolla' }),
-        el('p', { class: 'muted', text: `Struttura “${structureName}” · ${shotCount} inquadrature richieste. Nessun dato esce da qui: sei tu a portare il prompt nella chat.` }),
+        el('h2', { text: title }),
+        subtitle ? el('p', { class: 'muted', text: subtitle }) : null,
       ]),
 
       el('section', { class: 'bridge-step' }, [
@@ -89,7 +103,7 @@ export function openBridge({ prompt, shotCount, structureName }) {
       ]),
 
       el('div', { class: 'actions' }, [
-        el('button', { class: 'btn btn-ghost', type: 'button', text: 'Annulla e usa il motore locale', onclick: () => finish(null) }),
+        el('button', { class: 'btn btn-ghost', type: 'button', text: cancelLabel, onclick: () => finish(null) }),
         applyBtn,
       ]),
     ]);

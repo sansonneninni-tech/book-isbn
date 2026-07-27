@@ -3,11 +3,11 @@
 // -> riparazione vincoli -> soggetti -> luce -> raccordi -> alternative.
 
 import { RHYTHMS, lightAt, FALLBACK_SUBJECTS, framePhrase, scaleLabel, SCALES } from './vocabulary.js';
-import { makeColorArc, colorName, hexToHsl, hueDistance } from './color.js';
+import { makeColorArc, colorName, hexToHsl, hueDistance, paletteEnds } from './color.js';
 import { getStructure, scoreStructures } from './structures.js';
 import { pickScale, pickMove, repairScales, repairMoves, linkBetween, scalePool, movePool } from './constraints.js';
 import { makeRng } from '../util/rng.js';
-import { LIGHT_ARCS } from './vocabulary.js';
+import { getLight } from './vocabulary.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -23,14 +23,18 @@ export function parseMaterials(text) {
 /** Contesto condiviso fra scoring e generazione. */
 export function buildContext(input, seed = 'prisma') {
   const materials = parseMaterials(input.materiali);
-  const a = hexToHsl(input.paletteIniziale || '#1b2a4a');
-  const b = hexToHsl(input.paletteFinale || '#e8a33d');
-  const arc = LIGHT_ARCS.find((l) => l.id === input.lightArc) || LIGHT_ARCS[0];
+  const palette = paletteEnds(input);
+  const a = hexToHsl(palette.from);
+  const b = hexToHsl(palette.to);
+  const light = getLight(input.lightArc);
   return {
     materials,
+    palette,
+    paletteFlat: palette.flat,
     hueDelta: hueDistance(a.h, b.h),
     lumaDelta: Math.abs(a.l - b.l),
-    lightLabel: arc.label,
+    lightLabel: light.label,
+    lightFixed: light.fixed,
     ritmo: input.ritmo || 'respirato',
     rng: makeRng(`${seed}:${input.idea}:${input.paletteIniziale}`),
   };
@@ -172,12 +176,12 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
   // 2. durate
   const durations = computeDurations(beats, duration, rhythm, rng);
 
-  // 3. arco cromatico
+  // 3. arco cromatico (in palette omogenea il "viaggio lungo" non ha senso: si resta sul colore)
   const colorAt = makeColorArc(
-    input.paletteIniziale || '#1b2a4a',
-    input.paletteFinale || '#e8a33d',
+    ctx.palette.from,
+    ctx.palette.to,
     structure.colorMode,
-    !!input.viaggioLungo
+    !ctx.paletteFlat && !!input.viaggioLungo
   );
 
   // 4. scale e movimenti + riparazione vincoli
@@ -261,6 +265,9 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
       ritmoId: rhythm.id,
       nShot: shots.length,
       seed,
+      paletteFlat: ctx.paletteFlat,
+      luceFissa: ctx.lightFixed,
+      luceLabel: ctx.lightLabel,
       formato: '9:16 verticale',
       creato: new Date().toISOString(),
     },
@@ -270,10 +277,13 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
 }
 
 /**
- * Rigenera un singolo shot mantenendo la sua funzione narrativa, durata e colore:
- * cambia solo COME lo riprendi, mai il PERCHE'.
+ * Rigenera un singolo shot mantenendo durata, atto, colore e posizione: cambia
+ * COME lo riprendi. `ai` (facoltativo) porta la proposta del modello — finestra
+ * di scala, banda di movimento e testi — che resta comunque soggetta ai vincoli:
+ * la scala non puo' ripetere quella dei vicini, il movimento neppure.
+ * @param {{fn?:string, soggetto?:string, alternativa?:string, scale?:number[], move?:string}|null} ai
  */
-export function regenerateShot(plan, input, index, nonce = Date.now()) {
+export function regenerateShot(plan, input, index, nonce = Date.now(), ai = null) {
   const shots = plan.shots.map((s) => ({ ...s }));
   const shot = shots[index];
   if (!shot) return plan;
@@ -288,6 +298,9 @@ export function regenerateShot(plan, input, index, nonce = Date.now()) {
     structure.beats.find((b) => shot.funzione.toLowerCase().endsWith(lower(b.fn).toLowerCase())) ||
     structure.beats.find((b) => b.role === shot.role) || {};
   const beat = { scale: [0, 6], move: 'soft', ...source, i: shot.intensita };
+  // la proposta del modello sposta la finestra, non scavalca i vincoli
+  if (Array.isArray(ai?.scale) && ai.scale.length === 2) beat.scale = ai.scale;
+  if (ai?.move) beat.move = ai.move;
 
   const prev = shots[index - 1];
   const next = shots[index + 1];
@@ -307,6 +320,12 @@ export function regenerateShot(plan, input, index, nonce = Date.now()) {
   const altScale = rng.pick(scalePool(beat).filter((s) => s.family !== scale.family)) || scale;
   const altMove = pickMove(beat, rng, [move.id], [move.family]);
   shot.alternativa = altPhrase({ ...altScale, label: scaleLabel(altScale, people) }, altMove, materiale, people);
+
+  // i testi del modello sostituiscono la descrizione, mai i vincoli calcolati sopra
+  if (ai?.soggetto) shot.soggetto = ai.soggetto;
+  if (ai?.alternativa) shot.alternativa = ai.alternativa;
+  if (ai?.fn) shot.funzione = ai.fn;
+  if (ai) shot.origine = 'ponte';
 
   // ricalcola i raccordi toccati
   const links = [];

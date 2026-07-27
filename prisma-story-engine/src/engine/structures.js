@@ -151,6 +151,7 @@ export function scoreStructures(input, ctx) {
   const {
     idea = '', emozioneIniziale = '', emozioneFinale = '', ritmo = 'respirato',
     durata = 20, persone = false, lightArc = 'ombra-luce',
+    movente = '', lascito = '',
   } = input;
 
   const materials = ctx.materials;
@@ -159,7 +160,10 @@ export function scoreStructures(input, ctx) {
   const de = e1 - e0;
   const hueDelta = ctx.hueDelta;
   const lumaDelta = ctx.lumaDelta;
-  const ideaN = normalize(idea);
+  const flat = !!ctx.paletteFlat;
+  const lightFixed = !!ctx.lightFixed;
+  // anche le risposte iniziali pesano: sono quelle in cui l'autore dice la cosa vera
+  const ideaN = normalize(`${idea} ${movente} ${lascito}`);
 
   const out = STRUCTURES.map((s) => {
     let score = 1;
@@ -178,29 +182,34 @@ export function scoreStructures(input, ctx) {
         if (['contemplativo', 'respirato'].includes(ritmo)) add(1.5, `il ritmo ${ritmo} lascia respirare la rima fra prima e ultima inquadratura`);
         if (durata <= 20) add(0.9, `su ${durata}s la chiusura circolare si riconosce ancora a memoria`);
         if (lightArc === 'costante-cromatica') add(0.8, 'la luce costante rende leggibile che a cambiare è solo il colore');
+        if (flat) add(1.5, 'con una palette omogenea non c’è un colore d’arrivo che segni la fine: il ritorno del Ciclo dà comunque una chiusura riconoscibile');
         break;
       case 'crescendo':
         if (de > 0.22) add(2.6, `l’energia sale da “${emozioneIniziale}” a “${emozioneFinale}”: è letteralmente la curva del Crescendo`);
         else if (de < -0.1) add(-1.6);
         if (['pulsato', 'serrato'].includes(ritmo)) add(1.8, `il ritmo ${ritmo} regge l’accumulo senza sfilacciarsi`);
         if (durata >= 20) add(0.9, `${durata}s bastano a costruire l’accumulo e a permettersi la sospensione prima del picco`);
+        if (flat || lightFixed) add(1.2, 'colore e luce restano fermi: qui la progressione la fanno densità e durate, ed è esattamente il motore del Crescendo');
         break;
       case 'rivelazione':
         if (materials.length <= 2) add(1.9, `hai pochi soggetti (${materials.slice(0, 2).join(', ') || 'uno solo'}): perfetto, la Rivelazione ne ritarda uno solo`);
-        if (lightArc === 'ombra-luce' || lightArc === 'controluce') add(1.5, `l’evoluzione di luce “${ctx.lightLabel}” fa già metà del lavoro di occultamento`);
+        if (['ombra-luce', 'controluce', 'fissa-controluce', 'fissa-penombra'].includes(lightArc)) add(1.5, `la luce “${ctx.lightLabel}” fa già metà del lavoro di occultamento`);
         if (!persone) add(0.8, 'senza figure umane l’attenzione resta sull’oggetto negato');
         if (de > 0.15) add(0.7, 'la salita emotiva coincide con il momento dello svelamento');
         break;
       case 'metamorfosi':
-        if (hueDelta > 60 || lumaDelta > 25) add(2.5, `fra palette iniziale e finale ci sono ${Math.round(hueDelta)}° di tinta: uno scarto così va raccontato come trasformazione, non come stacco`);
+        if (flat) add(-1.8, null);
+        else if (hueDelta > 60 || lumaDelta > 25) add(2.5, `fra palette iniziale e finale ci sono ${Math.round(hueDelta)}° di tinta: uno scarto così va raccontato come trasformazione, non come stacco`);
         else add(-0.8);
+        if (flat && lightFixed) add(-1.2, null);
         if (['dura-diffusa', 'diffusa-dura', 'golden'].includes(lightArc)) add(1.2, `anche la luce cambia qualità (${ctx.lightLabel}), rinforzando il passaggio di stato`);
         if (durata >= 15) add(0.6, 'c’è spazio per mostrare lo stato ibrido, che è il vero centro della struttura');
         break;
       case 'chiamata-risposta':
         if (materials.length >= 2) add(2.4, `hai indicato più materiali (${materials.slice(0, 2).join(' e ')}): diventano le due voci del dialogo`);
         else add(-1.4);
-        if (hueDelta > 100) add(1.6, `${Math.round(hueDelta)}° fra i due colori: sono già due poli opposti sulla ruota`);
+        if (hueDelta > 100 && !flat) add(1.6, `${Math.round(hueDelta)}° fra i due colori: sono già due poli opposti sulla ruota`);
+        if (flat) add(0.6, 'palette omogenea: le due voci si distinguono per materia e scala invece che per colore, e il dialogo resta più severo');
         if (['pulsato', 'sincopato'].includes(ritmo)) add(1.2, `il ritmo ${ritmo} scandisce naturalmente il botta e risposta`);
         break;
       case 'frammento-intero':
@@ -208,6 +217,7 @@ export function scoreStructures(input, ctx) {
         if (ritmo === 'serrato' || ritmo === 'pulsato') add(1.3, `il ritmo ${ritmo} fa passare i frammenti prima che il cervello li decifri`);
         if (!persone) add(0.8, 'l’assenza di figure toglie il riferimento di scala: i frammenti restano illeggibili più a lungo');
         if (de > 0) add(0.6, 'la scoperta dell’insieme coincide con la salita emotiva che hai descritto');
+        if (lightFixed) add(0.9, 'con la luce costante i frammenti sembrano davvero pezzi della stessa cosa: è il presupposto della ricomposizione finale');
         break;
     }
 

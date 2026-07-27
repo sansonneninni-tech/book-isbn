@@ -14,7 +14,19 @@ python3 -m http.server 8000
 # apri http://localhost:8000
 ```
 
-Funziona offline. Il progetto viene salvato automaticamente nel browser (localStorage) e può essere esportato come file `.json`, `.csv` o stampato in PDF.
+Funziona offline. Il progetto viene salvato automaticamente nel browser (localStorage) e può essere esportato come file `.json`, `.csv` o stampato in PDF, tutto dal pannello **⤓ Salva / Stampa**.
+
+### Tre ambienti, un solo comportamento
+
+La stessa app gira da file locale, da server locale e dentro un iframe con `sandbox` (la versione pubblicata online). L'ultimo caso è ostile in modi silenziosi, e ognuno ha una contromisura:
+
+| Cosa blocca la sandbox | Cosa succedeva | Contromisura |
+|---|---|---|
+| invio dei `<form>` | il pulsante del wizard non faceva niente | nessun form: pulsanti `type="button"` con handler |
+| `confirm()` / `alert()` | “Nuovo” sembrava rotto | dialoghi propri (`<dialog>`), che la sandbox non tocca |
+| `window.print()` | stampa senza effetto | documento autonomo in una scheda nuova, o mostrato a schermo da salvare come `.html` |
+| download di file | click a vuoto | accanto a ogni “Scarica” ci sono “Copia” e “Mostra” |
+| `localStorage` | eccezione a ogni salvataggio | ogni accesso protetto; il provider resta in memoria |
 
 ### Versione single-file
 
@@ -28,11 +40,23 @@ node build.mjs          # -> dist/prisma-story-engine.html
 
 ## Flusso
 
-1. **Wizard** — idea, arco emotivo, materiali disponibili, palette iniziale/finale, evoluzione della luce, ritmo, durata, presenza di persone.
-2. **Tre strutture proposte** fra Ciclo, Crescendo, Rivelazione, Metamorfosi, Chiamata-risposta e Frammento→intero, con una motivazione che cita i dati inseriti.
-3. **Shot list** generata su regole deterministiche, con rigenerazione della singola inquadratura.
-4. **Timeline 9:16** con durate proporzionali, barra cromatica, divisione in atti e curva di intensità.
-5. **Analisi**, **note di montaggio**, **modalità shooting** con checkbox, **export**.
+1. **Tre domande** prima di ogni cosa tecnica: perché questo lavoro e perché adesso, cosa deve restare a chi guarda, cosa non deve esserci. Nessuna è obbligatoria; tutte e tre finiscono per intero nei prompt, e la terza diventa un divieto esplicito.
+2. **Wizard** — idea, arco emotivo, materiali disponibili, palette, comportamento della luce, ritmo, durata, presenza di persone.
+3. **Tre strutture proposte** fra Ciclo, Crescendo, Rivelazione, Metamorfosi, Chiamata-risposta e Frammento→intero, con una motivazione che cita i dati inseriti.
+4. **Shot list** generata su regole deterministiche, con rigenerazione della singola inquadratura.
+5. **Timeline 9:16** con durate proporzionali, barra cromatica, divisione in atti e curva di intensità.
+6. **Analisi**, **note di montaggio**, **modalità shooting** con checkbox, **export**.
+
+Il marchio in alto a sinistra e il pulsante **⌂ Inizio** riportano sempre alla prima schermata senza perdere il piano; **Piano →** ci riporta dentro.
+
+### Palette e luce non sono obbligate a cambiare
+
+La progressione narrativa può venire dal colore, ma non deve per forza:
+
+- **Palette omogenea** — un solo colore per tutto il reel. L'arco resta, ma si muove solo in luminosità e saturazione (tre ampiezze), con un micro-scarto di tinta che tiene vivo il monocromo. L'analisi smette di segnalare l'arco piatto come difetto e comincia a controllare che *qualcos'altro* si muova: se palette omogenea, luce costante e intensità piatta capitano insieme, quello sì che è un errore, e viene detto.
+- **Luce costante** — sei tipi (diffusa, dura, controluce, penombra, piena, artificiale) che restano identici dalla prima all'ultima inquadratura, accanto agli otto archi che invece evolvono.
+
+Entrambe le scelte cambiano il punteggio delle strutture (senza viaggio di colore il Ciclo e il Crescendo reggono meglio, la Metamorfosi molto meno) e cambiano il prompt mandato al modello, che riceve il divieto esplicito di introdurre colori estranei o di far evolvere la luce.
 
 ## Logica narrativa
 
@@ -74,7 +98,8 @@ prisma-story-engine/
     │   └── analysis.js   diagnostica + note di montaggio
     │   └── ai-plan.js     prompt del ponte + validazione della risposta
     ├── adapters/         local | manual | openai | claude (stessa interfaccia)
-    ├── ui/               wizard, structures, shotlist, timeline, analysis, shooting, exports
+    ├── ui/               roots (le tre domande), wizard, structures, shotlist,
+    │                     timeline, analysis, shooting, bridge, dialogs, exports
     └── util/             rng seedato, helper DOM
 ```
 
@@ -102,7 +127,9 @@ Quello che torna passa da `engine/ai-plan.js`, che non rifiuta mai in blocco ma 
 - riallinea gli atti fuori sequenza;
 - segnala atti vuoti, arco di intensità piatto e campi mancanti — che vengono compilati dal motore.
 
-Se la risposta è illeggibile, o se annulli, il piano si genera comunque in locale. La rigenerazione del singolo shot resta sempre locale e istantanea: sul set non si aspetta.
+Se la risposta è illeggibile, o se annulli, il piano si genera comunque in locale.
+
+**Anche la singola inquadratura passa dal ponte.** Il pulsante *Rigenera* apre un prompt che contiene solo quel beat e i suoi vicini: il modello propone funzione, soggetto, alternativa, finestra di scala e banda di movimento; durata, colore, atto e posizione nel racconto restano quelli del piano, perché toccarli vorrebbe dire rifare il montaggio attorno. La finestra di scala proposta viene comunque passata ai vincoli, quindi non può produrre due piani identici di fila. Chi ha fretta annulla e ottiene la rigenerazione locale, istantanea: sul set non si aspetta.
 
 ### Adapter API
 

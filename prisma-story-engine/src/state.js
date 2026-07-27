@@ -4,12 +4,18 @@ const KEY = 'prisma.project.v1';
 
 export const DEFAULT_INPUT = {
   titolo: 'Reel senza titolo',
+  // le tre domande di partenza: non tecniche, ma finiscono in ogni prompt
+  movente: '',
+  lascito: '',
+  rifiuto: '',
   idea: '',
   emozioneIniziale: 'attesa',
   emozioneFinale: 'meraviglia',
   materiali: '',
+  paletteMode: 'transizione', // transizione | omogenea
   paletteIniziale: '#16283f',
   paletteFinale: '#e0a24a',
+  paletteVariazione: 'media',
   viaggioLungo: false,
   lightArc: 'ombra-luce',
   ritmo: 'respirato',
@@ -20,7 +26,7 @@ export const DEFAULT_INPUT = {
 const listeners = new Set();
 
 export const state = {
-  step: 'wizard', // wizard | strutture | piano
+  step: 'radici', // radici | wizard | strutture | piano
   tab: 'shotlist', // shotlist | timeline | analisi | montaggio
   input: { ...DEFAULT_INPUT },
   candidates: [],
@@ -58,7 +64,7 @@ export function restore() {
     if (!raw) return false;
     const saved = JSON.parse(raw);
     Object.assign(state, {
-      step: saved.step || 'wizard',
+      step: saved.step || 'radici',
       tab: saved.tab || 'shotlist',
       input: { ...DEFAULT_INPUT, ...(saved.input || {}) },
       candidates: saved.candidates || [],
@@ -73,9 +79,15 @@ export function restore() {
 }
 
 export function resetAll() {
-  localStorage.removeItem(KEY);
+  // in un iframe con sandbox l'accesso a localStorage puo' lanciare: azzerare
+  // il progetto deve funzionare lo stesso, altrimenti il pulsante sembra morto
+  try {
+    localStorage.removeItem(KEY);
+  } catch (err) {
+    console.warn('Cancellazione locale non riuscita:', err.message);
+  }
   Object.assign(state, {
-    step: 'wizard', tab: 'shotlist', input: { ...DEFAULT_INPUT },
+    step: 'radici', tab: 'shotlist', input: { ...DEFAULT_INPUT },
     candidates: [], plan: null, shooting: false, seed: 'prisma',
   });
   listeners.forEach((fn) => fn(state));
@@ -92,6 +104,6 @@ export function loadSnapshot(obj) {
     input: { ...DEFAULT_INPUT, ...obj.input },
     plan: obj.plan || null,
     seed: obj.seed || 'prisma',
-    step: obj.plan ? 'piano' : 'wizard',
+    step: obj.plan ? 'piano' : 'radici',
   });
 }

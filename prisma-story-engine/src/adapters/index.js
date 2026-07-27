@@ -11,14 +11,21 @@ const STORAGE_KEY = 'prisma.provider.v1';
 
 export function loadProviderConfig() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { provider: 'local' };
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || memoryConfig || { provider: 'local' };
   } catch {
-    return { provider: 'local' };
+    return memoryConfig || { provider: 'local' };
   }
 }
 
+let memoryConfig = null;
+
 export function saveProviderConfig(cfg) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  memoryConfig = cfg;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  } catch (err) {
+    console.warn('Provider non salvato in locale:', err.message);
+  }
 }
 
 /**

@@ -1,14 +1,16 @@
 import { $, el, clear } from './util/dom.js';
 import { state, setState, subscribe, restore, resetAll, snapshot, loadSnapshot, persist } from './state.js';
 import { getAdapter, loadProviderConfig, saveProviderConfig, PROVIDERS, PROVIDER_LABELS } from './adapters/index.js';
+import { renderRoots } from './ui/roots.js';
 import { renderWizard } from './ui/wizard.js';
 import { renderStructures } from './ui/structures.js';
 import { renderShotlist } from './ui/shotlist.js';
 import { renderTimeline } from './ui/timeline.js';
 import { renderAnalysis, renderEditing } from './ui/analysis.js';
 import { renderShooting } from './ui/shooting.js';
-import { exportCsv, exportJson, importJson, printPlan } from './ui/exports.js';
+import { openExportDialog } from './ui/exports.js';
 import { openBridge, bridgeReportBox } from './ui/bridge.js';
+import { askConfirm } from './ui/dialogs.js';
 
 const view = $('#view');
 const toolbar = $('#toolbar');
@@ -101,21 +103,23 @@ function openSettings() {
     bridgeNote.style.display = provider === 'manual' ? '' : 'none';
   };
 
+  // niente <form>: in sandbox il submit non arriva all'handler (vedi ui/roots.js)
+  const val = (name) => String(dlg.querySelector(`[name="${name}"]`)?.value || '').trim();
+  const save = () => {
+    saveProviderConfig({
+      provider: val('provider'),
+      apiKey: val('apiKey'),
+      model: val('model'),
+      baseUrl: val('baseUrl'),
+    });
+    dlg.close();
+    dlg.remove();
+    notify('Provider aggiornato');
+    render();
+  };
+
   const dlg = el('dialog', { class: 'modal' }, [
-    el('form', { method: 'dialog', onsubmit: (e) => {
-      e.preventDefault();
-      const data = new FormData(e.target);
-      saveProviderConfig({
-        provider: data.get('provider'),
-        apiKey: String(data.get('apiKey') || '').trim(),
-        model: String(data.get('model') || '').trim(),
-        baseUrl: String(data.get('baseUrl') || '').trim(),
-      });
-      dlg.close();
-      dlg.remove();
-      notify('Provider aggiornato');
-      render();
-    } }, [
+    el('div', {}, [
       el('h2', { text: 'Motore di generazione' }),
       el('p', { class: 'muted', text: 'Qualunque sia il provider, i vincoli di ripresa restano del motore locale: durate, varietà di scale, alternanza dei movimenti e raccordi vengono ricalcolati e riparati qui. Il modello propone, il motore verifica.' }),
       el('label', { class: 'field' }, [
@@ -127,7 +131,7 @@ function openSettings() {
       bridgeNote,
       el('div', { class: 'actions' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', text: 'Annulla', onclick: () => { dlg.close(); dlg.remove(); } }),
-        el('button', { class: 'btn btn-primary', type: 'submit', text: 'Salva' }),
+        el('button', { class: 'btn btn-primary', type: 'button', text: 'Salva', onclick: save }),
       ]),
     ]),
   ]);
@@ -138,12 +142,49 @@ function openSettings() {
 
 // --- render -----------------------------------------------------------------
 
+function goHome() {
+  setState({ step: 'radici', shooting: false });
+}
+
+async function newProject() {
+  const ok = await askConfirm({
+    title: 'Ricominciare da capo?',
+    message: 'Il progetto corrente e il salvataggio nel browser vengono cancellati. Se vuoi tenerlo, esci da qui e salvalo prima con “Salva / Stampa”.',
+    confirmLabel: 'Sì, azzera tutto',
+    cancelLabel: 'No, torno indietro',
+    danger: true,
+  });
+  if (!ok) return;
+  resetAll();
+  notify('Progetto azzerato');
+}
+
+function openExports() {
+  openExportDialog({
+    plan: state.plan,
+    input: state.input,
+    snapshot,
+    notify,
+    onImport: (obj) => {
+      try {
+        loadSnapshot(obj);
+        notify('Progetto caricato');
+      } catch (err) {
+        notify(`File non valido: ${err.message}`);
+      }
+    },
+  });
+}
+
 function renderToolbar() {
   clear(toolbar);
   const has = !!state.plan;
   const cfg = loadProviderConfig();
+  const atHome = state.step === 'radici' && !state.shooting;
+
   toolbar.append(
-    el('div', { class: 'brand' }, [
+    // il marchio e' anche la via di ritorno: e' il primo posto dove si clicca
+    el('button', { class: 'brand', type: 'button', title: 'Torna alla prima schermata', onclick: goHome }, [
       el('span', { class: 'logo' }),
       el('div', {}, [
         el('strong', { text: 'PRISMA Story Engine' }),
@@ -151,15 +192,14 @@ function renderToolbar() {
       ]),
     ]),
     el('div', { class: 'toolbar-actions no-print' }, [
-      has ? el('button', { class: 'btn btn-sm', type: 'button', text: state.shooting ? '← Piano' : '📱 Shooting', onclick: () => setState({ shooting: !state.shooting }) }) : null,
-      has ? el('button', { class: 'btn btn-sm', type: 'button', text: 'CSV', onclick: () => exportCsv(state.plan, state.input) }) : null,
-      has ? el('button', { class: 'btn btn-sm', type: 'button', text: 'Stampa / PDF', onclick: printPlan }) : null,
-      el('button', { class: 'btn btn-sm', type: 'button', text: 'Salva file', onclick: () => exportJson(snapshot(), state.input) }),
-      el('button', { class: 'btn btn-sm', type: 'button', text: 'Apri file', onclick: () => importJson((obj) => { loadSnapshot(obj); notify('Progetto caricato'); }) }),
+      el('button', { class: 'btn btn-sm', type: 'button', text: '⌂ Inizio', disabled: atHome, onclick: goHome }),
+      has && (state.step !== 'piano' || state.shooting)
+        ? el('button', { class: 'btn btn-sm', type: 'button', text: 'Piano →', onclick: () => setState({ step: 'piano', shooting: false }) })
+        : null,
+      has && !state.shooting ? el('button', { class: 'btn btn-sm', type: 'button', text: '📱 Shooting', onclick: () => setState({ shooting: true }) }) : null,
+      el('button', { class: 'btn btn-sm', type: 'button', text: '⤓ Salva / Stampa', onclick: openExports }),
       el('button', { class: 'btn btn-sm', type: 'button', text: `⚙ ${PROVIDER_LABELS[cfg.provider] || cfg.provider}`, onclick: openSettings }),
-      el('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Nuovo', onclick: () => {
-        if (confirm('Azzerare il progetto corrente? Il salvataggio locale verrà cancellato.')) { resetAll(); notify('Progetto azzerato'); }
-      } }),
+      el('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Nuovo', onclick: newProject }),
     ]),
   );
 }
@@ -241,9 +281,23 @@ function render() {
     return;
   }
 
+  if (state.step === 'radici') {
+    renderRoots(view, {
+      input: state.input,
+      onChange: (patch) => {
+        Object.assign(state.input, patch);
+        persist();
+        if ('titolo' in patch) renderToolbar();
+      },
+      onNext: () => setState({ step: 'wizard' }),
+    });
+    return;
+  }
+
   if (state.step === 'wizard') {
     wizardApi = renderWizard(view, {
       input: state.input,
+      onBack: () => setState({ step: 'radici' }),
       onChange: (patch, silent = false) => {
         Object.assign(state.input, patch);
         persist();
@@ -268,7 +322,7 @@ function render() {
   }
 
   if (state.plan) renderPlan();
-  else setState({ step: 'wizard' });
+  else setState({ step: 'radici' });
 }
 
 subscribe(render);

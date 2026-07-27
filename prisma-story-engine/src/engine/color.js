@@ -34,6 +34,42 @@ export function hslToHex({ h, s, l }) {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/** Ampiezza della variazione interna a una palette omogenea. */
+export const VARIAZIONI = [
+  { id: 'minima', label: 'Quasi nessuna — un solo colore', amp: 6 },
+  { id: 'media', label: 'Leggera — sfumature dello stesso colore', amp: 15 },
+  { id: 'ampia', label: 'Marcata — stessa famiglia, tono che respira', amp: 28 },
+];
+
+/**
+ * I due estremi effettivi dell'arco cromatico.
+ * In modalita' "omogenea" non c'e' un colore d'arrivo: si resta sullo stesso,
+ * e il viaggio e' solo di luminosita' e saturazione, come in un monocromo.
+ * @returns {{from:string, to:string, flat:boolean, base:string}}
+ */
+export function paletteEnds(input = {}) {
+  const base = input.paletteIniziale || '#1b2a4a';
+  if (input.paletteMode !== 'omogenea') {
+    return { from: base, to: input.paletteFinale || '#e8a33d', flat: false, base };
+  }
+  const v = VARIAZIONI.find((x) => x.id === input.paletteVariazione) || VARIAZIONI[1];
+  const c = hexToHsl(base);
+  const half = v.amp / 2;
+  const from = hslToHex({
+    h: (c.h - half * 0.35 + 360) % 360,
+    s: clampN(c.s - half * 0.5, 0, 100),
+    l: clampN(c.l - half * 0.75, 5, 95),
+  });
+  const to = hslToHex({
+    h: (c.h + half * 0.35) % 360,
+    s: clampN(c.s + half * 0.4, 0, 100),
+    l: clampN(c.l + half * 0.75, 5, 95),
+  });
+  return { from, to, flat: true, base };
+}
+
 /** Distanza angolare fra due tinte, 0..180 */
 export function hueDistance(a, b) {
   const d = Math.abs(a - b) % 360;

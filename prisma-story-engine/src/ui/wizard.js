@@ -151,6 +151,23 @@ export function renderWizard(root, { input, onChange, onSubmit, onBack }) {
       ])),
     ]),
 
+    el('section', { class: 'card' }, [
+      el('h2', { text: '7 · Come si legano le inquadrature' }),
+      el('p', { class: 'field-hint', text: 'Due modi diversi di pensare il reel. Se scegli l’elenco, gli sketch di storyboard vengono generati come immagini autonome — utile se in fase di montaggio vuoi restare libero di riordinare.' }),
+      el('div', { class: 'choice-grid' }, [
+        ['sequenziale', 'Sequenza continua', 'Ogni taglio ha un raccordo dichiarato (colore, movimento, forma, luce, suono). L’ordine e’ quello che leggerai in shot list.'],
+        ['indipendente', 'Elenco di inquadrature indipendenti', 'Nessun raccordo obbligatorio: ogni inquadratura si regge da sola. Piu’ liberta’ in fase di montaggio.'],
+      ].map(([id, label, note]) => el('label', { class: 'choice' }, [
+        el('input', {
+          type: 'radio', name: 'modalita', value: id,
+          checked: (input.modalita || 'sequenziale') === id,
+          onchange: () => onChange({ modalita: id }, true),
+        }),
+        el('strong', { text: label }),
+        el('span', { text: note }),
+      ]))),
+    ]),
+
     el('div', { class: 'actions' }, [
       onBack ? el('button', { type: 'button', class: 'btn btn-ghost', text: '← Torna alle tre domande', onclick: onBack }) : null,
       el('button', { type: 'button', class: 'btn btn-primary', text: 'Proponi 3 strutture →', onclick: onSubmit }),

@@ -100,8 +100,12 @@ export function analyze(plan) {
   if (avg < 0.7) push('warn', 'Montaggio molto fitto', `Media di ${avg.toFixed(1)}s per inquadratura su ${shots.length} shot: girabile, ma prevedi molto materiale e stabilizza in ripresa.`);
 
   // --- raccordi --------------------------------------------------------------
-  const weakLinks = shots.filter((s, i) => i > 0 && s.linkPrev.tipo === 'materia').length;
-  if (weakLinks > shots.length * 0.5) push('warn', 'Raccordi generici', 'Più di metà dei tagli si regge solo sul suono. Avvicina le palette di shot adiacenti o ripeti un asse di movimento per avere raccordi visivi veri.');
+  if (meta.modalita === 'indipendente') {
+    push('ok', 'Elenco indipendente', 'Ogni inquadratura è pensata per reggere da sola: i raccordi non sono richiesti e non vengono valutati. L’ordine finale lo deciderai in montaggio.');
+  } else {
+    const weakLinks = shots.filter((s, i) => i > 0 && s.linkPrev.tipo === 'materia').length;
+    if (weakLinks > shots.length * 0.5) push('warn', 'Raccordi generici', 'Più di metà dei tagli si regge solo sul suono. Avvicina le palette di shot adiacenti o ripeti un asse di movimento per avere raccordi visivi veri.');
+  }
 
   const order = { error: 0, warn: 1, ok: 2 };
   return out.sort((a, b) => order[a.level] - order[b.level]);
@@ -117,11 +121,15 @@ export function editingNotes(plan) {
   const peak = shots.reduce((a, b) => (b.intensita > a.intensita ? b : a), shots[0]);
   notes.push(`Monta partendo dal picco (shot ${peak.n}, ${peak.funzione.toLowerCase()}): posizionalo per primo in timeline e costruisci il resto attorno.`);
 
-  const colorCuts = shots.filter((s) => s.linkPrev.tipo === 'colore').map((s) => s.n);
-  if (colorCuts.length) notes.push(`Tagli tenuti dal colore: shot ${colorCuts.join(', ')} — non correggerli separatamente in grading, o il raccordo si perde.`);
+  if (meta.modalita === 'indipendente') {
+    notes.push('Modalità elenco: le inquadrature non hanno raccordi predefiniti. Prova più di un ordine in montaggio prima di fissarlo, e cerca da lì gli accostamenti che ti convincono di più.');
+  } else {
+    const colorCuts = shots.filter((s) => s.linkPrev.tipo === 'colore').map((s) => s.n);
+    if (colorCuts.length) notes.push(`Tagli tenuti dal colore: shot ${colorCuts.join(', ')} — non correggerli separatamente in grading, o il raccordo si perde.`);
 
-  const actionCuts = shots.filter((s) => s.linkPrev.tipo === 'movimento').map((s) => s.n);
-  if (actionCuts.length) notes.push(`Match on action: shot ${actionCuts.join(', ')} — taglia a metà del movimento, mai all’inizio o alla fine.`);
+    const actionCuts = shots.filter((s) => s.linkPrev.tipo === 'movimento').map((s) => s.n);
+    if (actionCuts.length) notes.push(`Match on action: shot ${actionCuts.join(', ')} — taglia a metà del movimento, mai all’inizio o alla fine.`);
+  }
 
   if (meta.paletteFlat) {
     notes.push(`Grading: una sola dominante per tutto, ${shots[0].colore.nome}. Lavora su luminosità e contrasto, non sulla tinta: un solo shot che vira fuori palette si nota più di dieci tagli sbagliati.`);

@@ -14,6 +14,7 @@ const CSV_HEADERS = [
   'n', 'atto', 'ruolo', 'funzione narrativa', 'soggetto', 'materiale', 'piano/scala',
   'movimento', 'durata (s)', 'inizio (s)', 'luce', 'colore', 'hex', 'intensita',
   'raccordo con precedente', 'raccordo con successivo', 'alternativa', 'girata',
+  'storyboard: descrizione shot', 'storyboard: descrizione visual',
 ];
 
 const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -24,6 +25,12 @@ export function planToCsv(plan, input) {
     [`# perché: ${input.movente || '—'}`],
     [`# cosa deve restare: ${input.lascito || '—'}`],
     [`# da evitare: ${input.rifiuto || '—'}`],
+    [`# modalità: ${plan.meta.modalita || 'sequenziale'}`],
+    [],
+    plan.meta.storyboard ? [`# storyboard — concept generale`] : null,
+    plan.meta.storyboard ? [plan.meta.storyboard.conceptGenerale] : null,
+    plan.meta.storyboard ? [`# storyboard — personaggi / soggetti ricorrenti`] : null,
+    plan.meta.storyboard ? [plan.meta.storyboard.descrizionePersonaggi] : null,
     [],
     CSV_HEADERS,
     ...plan.shots.map((s) => [
@@ -33,12 +40,13 @@ export function planToCsv(plan, input) {
       `${s.linkPrev.tipo}: ${s.linkPrev.testo}`,
       `${s.linkNext.tipo}: ${s.linkNext.testo}`,
       s.alternativa, s.fatto ? 'si' : 'no',
+      s.storyboard?.descShot || '', s.storyboard?.descVisual || '',
     ]),
     [],
     ['# note di montaggio'],
     ...editingNotes(plan).map((n) => [n]),
   ];
-  return '﻿' + rows.map((r) => r.map(esc).join(',')).join('\n');
+  return '﻿' + rows.filter(Boolean).map((r) => r.map(esc).join(',')).join('\n');
 }
 
 // ---------------------------------------------------------------------------

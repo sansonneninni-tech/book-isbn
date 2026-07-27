@@ -8,6 +8,7 @@ import { getStructure, scoreStructures } from './structures.js';
 import { pickScale, pickMove, repairScales, repairMoves, linkBetween, scalePool, movePool } from './constraints.js';
 import { makeRng } from '../util/rng.js';
 import { getLight } from './vocabulary.js';
+import { attachStoryboard, refreshShotStoryboard } from './storyboard.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -236,13 +237,21 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
     });
   }
 
-  // 7. raccordi
-  const links = [];
-  for (let i = 0; i < shots.length - 1; i++) links.push(linkBetween(shots[i], shots[i + 1], ctx));
-  shots.forEach((s, i) => {
-    s.linkPrev = i > 0 ? links[i - 1] : { tipo: 'apertura', testo: 'Prima immagine: nessun raccordo in entrata, deve reggere da sola nei primi 0,5 secondi.' };
-    s.linkNext = i < links.length ? links[i] : { tipo: 'chiusura', testo: 'Ultima immagine: il raccordo in uscita è con il loop del reel — deve poter rientrare sulla prima.' };
-  });
+  // 7. raccordi — in modalita' indipendente non ci sono: ogni shot regge da sola
+  const modalita = input.modalita === 'indipendente' ? 'indipendente' : 'sequenziale';
+  if (modalita === 'indipendente') {
+    shots.forEach((s) => {
+      s.linkPrev = { tipo: 'autonoma', testo: 'Modalità elenco: nessun raccordo richiesto con l’inquadratura precedente, l’ordine si decide in montaggio.' };
+      s.linkNext = { tipo: 'autonoma', testo: 'Modalità elenco: nessun raccordo richiesto con la successiva, l’ordine si decide in montaggio.' };
+    });
+  } else {
+    const links = [];
+    for (let i = 0; i < shots.length - 1; i++) links.push(linkBetween(shots[i], shots[i + 1], ctx));
+    shots.forEach((s, i) => {
+      s.linkPrev = i > 0 ? links[i - 1] : { tipo: 'apertura', testo: 'Prima immagine: nessun raccordo in entrata, deve reggere da sola nei primi 0,5 secondi.' };
+      s.linkNext = i < links.length ? links[i] : { tipo: 'chiusura', testo: 'Ultima immagine: il raccordo in uscita è con il loop del reel — deve poter rientrare sulla prima.' };
+    });
+  }
 
   const acts = [1, 2, 3].map((n) => {
     const inAct = shots.filter((s) => s.act === n);
@@ -254,7 +263,7 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
     };
   });
 
-  return {
+  const plan = {
     meta: {
       struttura: structure.id,
       strutturaNome: structure.name,
@@ -268,12 +277,15 @@ export function generatePlan(input, structureId, seed = 'prisma', options = {}) 
       paletteFlat: ctx.paletteFlat,
       luceFissa: ctx.lightFixed,
       luceLabel: ctx.lightLabel,
+      modalita,
       formato: '9:16 verticale',
       creato: new Date().toISOString(),
     },
     shots,
     acts,
   };
+
+  return attachStoryboard(plan, input);
 }
 
 /**
@@ -327,13 +339,21 @@ export function regenerateShot(plan, input, index, nonce = Date.now(), ai = null
   if (ai?.fn) shot.funzione = ai.fn;
   if (ai) shot.origine = 'ponte';
 
-  // ricalcola i raccordi toccati
-  const links = [];
-  for (let i = 0; i < shots.length - 1; i++) links.push(linkBetween(shots[i], shots[i + 1], ctx));
-  shots.forEach((s, i) => {
-    s.linkPrev = i > 0 ? links[i - 1] : s.linkPrev;
-    s.linkNext = i < links.length ? links[i] : s.linkNext;
-  });
+  // ricalcola i raccordi toccati, tranne in modalita' indipendente
+  if (plan.meta.modalita !== 'indipendente') {
+    const links = [];
+    for (let i = 0; i < shots.length - 1; i++) links.push(linkBetween(shots[i], shots[i + 1], ctx));
+    shots.forEach((s, i) => {
+      s.linkPrev = i > 0 ? links[i - 1] : s.linkPrev;
+      s.linkNext = i < links.length ? links[i] : s.linkNext;
+    });
+  }
 
-  return { ...plan, shots };
+  const updated = { ...plan, shots };
+  // ricostruisce lo storyboard dei tre shot toccati: il rigenerato e i suoi
+  // vicini, i cui raccordi possono essere cambiati
+  refreshShotStoryboard(updated, index);
+  if (index > 0) refreshShotStoryboard(updated, index - 1);
+  if (index < shots.length - 1) refreshShotStoryboard(updated, index + 1);
+  return updated;
 }

@@ -333,6 +333,26 @@ dialog.modal select { pointer-events: auto; opacity: 1; }
 .bridge-report .report-ok { color: var(--ok); }
 .bridge-report .btn { align-self: flex-end; }
 
+/* ---------- storyboard (Google Flow) ---------- */
+.storyboard { display: flex; flex-direction: column; gap: 14px; border-color: rgba(224, 162, 74, .35); }
+.sb-head h3 { margin: 0 0 4px; }
+.sb-head p { margin: 0; }
+.sb-block { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0e1119; border: 1px solid var(--line); border-radius: 10px; }
+.sb-block-head { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.sb-block-head > div { flex: 1 1 260px; min-width: 0; }
+.sb-block-head strong { display: block; }
+.sb-block-head .field-hint { margin: 2px 0 0; }
+.sb-preview {
+  margin: 0; padding: 10px 12px; max-height: 8em; overflow: auto;
+  font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #c6cbdb; background: #0b0d13; border: 1px solid var(--line); border-radius: 8px;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+
+.shot-sb { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.shot-sb .copy-btn { flex: 1 1 200px; }
+.copy-btn.is-copied { color: var(--ok); border-color: rgba(87, 201, 139, .5); }
+
 .badge-inline {
   display: inline-block; margin-left: 10px; vertical-align: middle;
   background: rgba(110, 168, 255, .16); color: var(--accent-2);

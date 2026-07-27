@@ -81,6 +81,12 @@ Durata totale: ${input.durata}s
 "${structure.name}" — ${structure.tagline}
 ${structure.idea}
 
+## Modalità di lettura
+
+${input.modalita === 'indipendente'
+  ? 'ELENCO DI INQUADRATURE INDIPENDENTI: nessun raccordo obbligatorio fra un\'inquadratura e la successiva. Ogni "fn" deve poter essere letta come una scena a sé, che regge senza contesto. In "soggetto" NON alludere a quello che viene prima o dopo. La struttura scelta guida comunque l\'arco emotivo generale e la distribuzione negli atti.'
+  : 'SEQUENZA CONTINUA: le inquadrature si susseguono con senso di causa-effetto. Ogni beat suppone quello precedente e prepara il successivo, e "soggetto" può contenere riferimenti a ciò che è appena stato mostrato.'}
+
 ## Cosa devi restituire
 
 Una beat map di ESATTAMENTE ${n} inquadrature che realizzi questa struttura su questa idea.

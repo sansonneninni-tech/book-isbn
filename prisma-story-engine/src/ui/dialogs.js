@@ -56,6 +56,45 @@ export async function copyText(text, fallbackField = null) {
 }
 
 /**
+ * Pulsante che copia negli appunti al click, con feedback visivo e ripiego
+ * automatico su un modale che mostra il testo quando gli appunti sono bloccati
+ * (ad esempio dentro un iframe senza allow-clipboard-write).
+ *
+ * @param {{label:string, title?:string, getText:()=>string, className?:string}} opts
+ * @returns un elemento <button> gia' pronto
+ */
+export function copyButton({ label, title, getText, className = 'btn btn-sm btn-ghost' }) {
+  const btn = el('button', { class: `${className} copy-btn`, type: 'button', text: label });
+  let armed = true;
+  btn.addEventListener('click', async () => {
+    if (!armed) return;
+    armed = false;
+    const text = getText();
+    if (!text || !text.trim()) {
+      btn.textContent = 'Niente da copiare';
+      setTimeout(() => { btn.textContent = label; armed = true; }, 1600);
+      return;
+    }
+    const ok = await copyText(text);
+    if (ok) {
+      btn.textContent = '✓ Copiato';
+      btn.classList.add('is-copied');
+      setTimeout(() => { btn.textContent = label; btn.classList.remove('is-copied'); armed = true; }, 1800);
+    } else {
+      showTextFile({
+        title: title || label,
+        note: 'Gli appunti non sono accessibili qui: selezionalo (⌘A) e copialo a mano (⌘C).',
+        name: 'testo',
+        content: text,
+      });
+      btn.textContent = label;
+      armed = true;
+    }
+  });
+  return btn;
+}
+
+/**
  * Ultima spiaggia per un file: se il download non parte (iframe senza permesso di
  * scaricare), il contenuto resta comunque raggiungibile — selezionabile e copiabile.
  */

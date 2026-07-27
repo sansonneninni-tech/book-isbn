@@ -21,6 +21,9 @@ export const DEFAULT_INPUT = {
   ritmo: 'respirato',
   durata: 22,
   persone: false,
+  // sequenziale = shot legati da raccordi; indipendente = elenco di immagini
+  // autonome, ognuna deve reggersi da sola (piu' liberta' in fase di montaggio)
+  modalita: 'sequenziale',
 };
 
 const listeners = new Set();

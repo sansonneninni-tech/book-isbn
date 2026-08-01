@@ -18,15 +18,23 @@ Uso rapido:
 import argparse
 import json
 import os
-import random
 import signal
-import string
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 
 import requests
+
+from common import (
+    build_messages,
+    describe_end,
+    load_dotenv,
+    next_step,
+    now_iso,
+    pick_message,
+    render,
+    validate_common,
+)
 
 API_BASE = "https://api.telegram.org/bot{token}/{method}"
 
@@ -34,32 +42,10 @@ API_BASE = "https://api.telegram.org/bot{token}/{method}"
 # soglia il rischio non e' solo il rate limit ma il ban del bot, quindi un
 # intervallo piu' aggressivo va chiesto esplicitamente con --force.
 SAFE_MIN_INTERVAL = 3.0
-HARD_MIN_INTERVAL = 0.2
 
 # Errori che non hanno senso ritentare: token invalido, chat inesistente,
 # bot non nel gruppo. Riprovare produrrebbe solo lo stesso errore.
 FATAL_ERROR_CODES = (400, 401, 403, 404)
-
-
-class Stop(Exception):
-    """Sollevata quando arriva SIGINT/SIGTERM, per uscire pulito dal loop."""
-
-
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def load_dotenv(path):
-    """Carica KEY=VALUE da un .env senza dipendenze esterne."""
-    if not os.path.exists(path):
-        return
-    with open(path, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
 def get_token(args):
@@ -133,45 +119,6 @@ def cmd_chats(args):
 # comando: send
 # --------------------------------------------------------------------------
 
-def build_messages(args):
-    """Ritorna la lista dei template da inviare (rotazione o random)."""
-    messages = []
-    if args.message_file:
-        with open(args.message_file, encoding="utf-8") as fh:
-            messages = [
-                line.rstrip("\n")
-                for line in fh
-                if line.strip() and not line.lstrip().startswith("#")
-            ]
-        if not messages:
-            sys.exit(f"{args.message_file} non contiene messaggi.")
-    if args.message:
-        messages.extend(args.message)
-    if not messages:
-        sys.exit("Serve almeno un messaggio: usa -m/--message o --message-file.")
-    return messages
-
-
-def render(template, index, run_id):
-    """Espande i placeholder del template.
-
-    {n}    progressivo dell'invio (da 1)
-    {ts}   timestamp ISO UTC
-    {unix} timestamp unix intero
-    {rand} stringa casuale di 8 caratteri
-    {uuid} uuid4 completo
-    {run}  id di questa sessione di test
-    """
-    return (
-        template.replace("{n}", str(index))
-        .replace("{ts}", _now_iso())
-        .replace("{unix}", str(int(time.time())))
-        .replace("{rand}", "".join(random.choices(string.ascii_lowercase + string.digits, k=8)))
-        .replace("{uuid}", str(uuid.uuid4()))
-        .replace("{run}", run_id)
-    )
-
-
 def send_one(token, chat_id, text, args):
     """Invia un messaggio gestendo il 429. Ritorna un dict con l'esito."""
     params = {
@@ -211,17 +158,11 @@ def send_one(token, chat_id, text, args):
 def cmd_send(args):
     token = get_token(args)
     messages = build_messages(args)
-
-    if args.interval < HARD_MIN_INTERVAL:
-        sys.exit(f"--interval minimo consentito: {HARD_MIN_INTERVAL}s")
-    if args.interval < SAFE_MIN_INTERVAL and not args.force:
-        sys.exit(
-            f"--interval {args.interval}s e' sotto la soglia di sicurezza di "
-            f"{SAFE_MIN_INTERVAL}s (Telegram limita a ~20 msg/min per gruppo e "
-            "puo' bannare il bot). Aggiungi --force se e' proprio quello che vuoi testare."
-        )
-    if args.count is None and args.duration is None and not args.forever:
-        sys.exit("Definisci una fine: --count N, --duration SECONDI oppure --forever.")
+    validate_common(
+        args,
+        SAFE_MIN_INTERVAL,
+        "Telegram limita a ~20 msg/min per gruppo e puo' bannare il bot.\n",
+    )
 
     run_id = uuid.uuid4().hex[:8]
     log_file = args.log or os.path.join(os.path.dirname(os.path.abspath(__file__)), "sent.jsonl")
@@ -239,11 +180,7 @@ def cmd_send(args):
     print(f"chat_id     : {args.chat_id}")
     print(f"intervallo  : {args.interval}s" + (f" (+jitter fino a {args.jitter}s)" if args.jitter else ""))
     print(f"messaggi    : {len(messages)} template ({'random' if args.random else 'rotazione'})")
-    print(f"fine        : " + (
-        f"{args.count} invii" if args.count is not None
-        else f"{args.duration}s" if args.duration is not None
-        else "manuale (Ctrl+C)"
-    ))
+    print(f"fine        : {describe_end(args)}")
     print(f"log         : {log_file}")
     if args.dry_run:
         print("MODALITA' DRY-RUN: nessun messaggio verra' inviato davvero.")
@@ -268,8 +205,7 @@ def cmd_send(args):
                 break
 
             index += 1
-            template = random.choice(messages) if args.random else messages[(index - 1) % len(messages)]
-            text = render(template, index, run_id)
+            text = render(pick_message(messages, index, args.random), index, run_id)
 
             if args.dry_run:
                 outcome = {"ok": True, "message_id": None, "attempts": 0, "dry_run": True}
@@ -279,7 +215,7 @@ def cmd_send(args):
             record = {
                 "run_id": run_id,
                 "n": index,
-                "sent_at": _now_iso(),
+                "sent_at": now_iso(),
                 "chat_id": args.chat_id,
                 "text": text,
                 **outcome,
@@ -303,12 +239,7 @@ def cmd_send(args):
                     break
 
             # Pianifico sull'orologio monotono per non accumulare deriva.
-            next_at += args.interval
-            if args.jitter:
-                next_at += random.uniform(0, args.jitter)
-            now = time.monotonic()
-            if next_at < now:
-                next_at = now
+            next_at = max(next_at + next_step(args), time.monotonic())
 
     elapsed = time.monotonic() - start
     print("-" * 60)

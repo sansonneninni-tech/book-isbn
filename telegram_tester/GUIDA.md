@@ -3,6 +3,13 @@
 Guida senza comandi da scrivere: fai tutto da Telegram e dal sito di GitHub.
 Servono circa 10 minuti la prima volta, poi bastano 30 secondi per ogni test.
 
+> **Questa guida è per la versione BOT**: i messaggi arrivano nel gruppo scritti
+> da un bot, non da te. È la strada più semplice e senza rischi per il tuo account.
+>
+> Se ti serve che i messaggi partano **dal tuo account personale** (nel gruppo
+> appaiono come scritti da te), la procedura è diversa e più delicata:
+> vedi [GUIDA-ACCOUNT.md](GUIDA-ACCOUNT.md).
+
 ---
 
 ## Parte 1 — Crea il bot (su Telegram)

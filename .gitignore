@@ -57,3 +57,6 @@ Thumbs.db
 # Telegram tester
 telegram_tester/sent.jsonl
 telegram_tester/*.jsonl
+# Sessioni Telegram: valgono quanto la password dell'account
+telegram_tester/*.session
+telegram_tester/*.session-journal

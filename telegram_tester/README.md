@@ -14,6 +14,21 @@ rilevato con quello che è stato realmente spedito.
 📱 **Sei da smartphone o non hai mai usato un terminale?** Salta questa pagina e
 segui la [GUIDA passo passo](GUIDA.md): si fa tutto dal browser, senza installare nulla.
 
+## Due versioni
+
+| | `sender.py` (bot) | `user_sender.py` (account) |
+|---|---|---|
+| Chi scrive nel gruppo | un bot | **tu** |
+| Cosa serve | un token da BotFather | login con numero di telefono |
+| Si usa dal telefono | sì, anche da GitHub Actions | serve un computer per il primo login |
+| Rischio | il bot viene bannato, ne rifai un altro | **limitazioni o blocco del tuo account** |
+| Intervallo minimo | 3s | 10s |
+| Guida | [GUIDA.md](GUIDA.md) | [GUIDA-ACCOUNT.md](GUIDA-ACCOUNT.md) |
+
+Le opzioni di invio (`-m`, `-i`, `-n`, `-d`, `--jitter`, `--random`, `--dry-run`,
+placeholder, log JSONL) sono identiche nei due strumenti. Il resto di questa
+pagina descrive la versione bot.
+
 ## Setup
 
 ### 1. Crea il bot

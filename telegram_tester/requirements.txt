@@ -1,0 +1,5 @@
+# Versione bot (sender.py)
+requests>=2.31.0
+
+# Versione account personale (user_sender.py)
+telethon>=1.34.0

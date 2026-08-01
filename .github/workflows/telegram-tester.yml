@@ -1,0 +1,107 @@
+name: Telegram Spam Tester
+
+# Si avvia solo a mano, dal tab "Actions" di GitHub (funziona anche da telefono).
+on:
+  workflow_dispatch:
+    inputs:
+      azione:
+        description: "Cosa fare"
+        type: choice
+        required: true
+        default: invia
+        options:
+          - invia
+          - trova-chat-id
+      chat_id:
+        description: "ID del gruppo (es. -1001234567890). Non serve per trova-chat-id"
+        required: false
+        default: ""
+      messaggio:
+        description: "Messaggio da inviare. Puoi usare {n} {ts} {rand}"
+        required: false
+        default: "test antispam {n}"
+      intervallo:
+        description: "Secondi tra un messaggio e l'altro"
+        required: false
+        default: "10"
+      quantita:
+        description: "Quanti messaggi inviare in totale"
+        required: false
+        default: "10"
+      prova_a_vuoto:
+        description: "Simula senza inviare davvero"
+        type: boolean
+        required: false
+        default: false
+      forza:
+        description: "Consenti intervalli sotto i 3 secondi (rischio ban del bot)"
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # Rete di sicurezza: qualunque cosa succeda, si ferma dopo 30 minuti.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installa dipendenze
+        run: pip install requests
+
+      - name: Controlla il token
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "::error::Manca il secret TELEGRAM_BOT_TOKEN."
+            echo "Vai su Settings > Secrets and variables > Actions > New repository secret"
+            echo "Nome: TELEGRAM_BOT_TOKEN - Valore: il token di BotFather"
+            exit 1
+          fi
+
+      - name: Trova chat_id
+        if: inputs.azione == 'trova-chat-id'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python telegram_tester/sender.py chats
+
+      - name: Invia messaggi
+        if: inputs.azione == 'invia'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # Passati come variabili d'ambiente e non incollati nel comando:
+          # cosi' un messaggio con virgolette o apici non rompe niente.
+          CHAT_ID: ${{ inputs.chat_id }}
+          MESSAGGIO: ${{ inputs.messaggio }}
+          INTERVALLO: ${{ inputs.intervallo }}
+          QUANTITA: ${{ inputs.quantita }}
+          PROVA_A_VUOTO: ${{ inputs.prova_a_vuoto }}
+          FORZA: ${{ inputs.forza }}
+        run: |
+          if [ -z "$CHAT_ID" ]; then
+            echo "::error::Per inviare serve il chat_id del gruppo."
+            exit 1
+          fi
+          EXTRA=""
+          [ "$PROVA_A_VUOTO" = "true" ] && EXTRA="$EXTRA --dry-run"
+          [ "$FORZA" = "true" ] && EXTRA="$EXTRA --force"
+          python telegram_tester/sender.py send \
+            --chat-id "$CHAT_ID" \
+            --message "$MESSAGGIO" \
+            --interval "$INTERVALLO" \
+            --count "$QUANTITA" \
+            $EXTRA
+
+      - name: Salva il log degli invii
+        if: always() && inputs.azione == 'invia'
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-invii
+          path: telegram_tester/sent.jsonl
+          if-no-files-found: ignore

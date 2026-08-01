@@ -11,6 +11,9 @@ rilevato con quello che è stato realmente spedito.
 > messaggi ripetuti su gruppi altrui viola i [ToS di Telegram](https://telegram.org/tos)
 > e porta al ban del bot.
 
+📱 **Sei da smartphone o non hai mai usato un terminale?** Salta questa pagina e
+segui la [GUIDA passo passo](GUIDA.md): si fa tutto dal browser, senza installare nulla.
+
 ## Setup
 
 ### 1. Crea il bot

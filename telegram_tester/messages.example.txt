@@ -1,0 +1,10 @@
+# Un messaggio per riga. Le righe vuote vengono ignorate.
+# Placeholder disponibili: {n} {ts} {unix} {rand} {uuid} {run}
+Messaggio di test numero {n} - run {run}
+Ciao a tutti! {rand}
+OFFERTA SPECIALE!!! Clicca qui: http://example.invalid/{rand}
+Guadagna 500 euro al giorno da casa, scrivimi in privato
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+🔥🔥🔥 PROMO 🔥🔥🔥 solo per oggi
+Testo identico ripetuto per vedere se scatta il filtro sui duplicati
+Testo con link ripetuti http://example.invalid http://example.invalid http://example.invalid

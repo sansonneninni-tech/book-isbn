@@ -62,6 +62,19 @@ Apri il browser e vai a `http://localhost:5000`
 3. Ricerca il libro su database online
 4. Visualizza i risultati con link per acquistare
 
+## 🤖 Telegram Spam Tester
+
+In `telegram_tester/` c'è un tool separato dall'app: invia un messaggio su un gruppo
+Telegram a intervalli regolari, per testare filtri antispam sui propri gruppi di prova.
+Vedi [telegram_tester/README.md](telegram_tester/README.md).
+
+```bash
+cd telegram_tester
+export TELEGRAM_BOT_TOKEN="123456789:AAH..."
+python sender.py chats
+python sender.py send -c -1001234567890 -m "test {n}" -i 5 -n 20
+```
+
 ## 📄 Licenza
 
 MIT

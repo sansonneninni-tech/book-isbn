@@ -53,3 +53,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Telegram tester
+telegram_tester/sent.jsonl
+telegram_tester/*.jsonl
